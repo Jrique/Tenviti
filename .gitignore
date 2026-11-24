@@ -19,4 +19,4 @@ node_modules/
 tunedata.iff
 
 # Imagens enviadas quando o servidor roda fora do Docker
-LDLanchesASW/server/midia/
+tenviti/server/midia/

@@ -3,7 +3,7 @@
 **/.kotlin/
 **/.idea/
 **/node_modules/
-LDLanchesASW/kotlin-js-store/
+tenviti/kotlin-js-store/
 .git/
 .env
 **/local.properties

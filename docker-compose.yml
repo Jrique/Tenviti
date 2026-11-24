@@ -1,12 +1,16 @@
-# Ambiente local: PostgreSQL + servidor Ktor (que também serve o cardápio web em /{loja}/).
+# Tenviti — ambiente local: PostgreSQL + servidor Ktor (que também serve a vitrine web em /{loja}/).
 # Uso:  cp .env.exemplo .env  (preencha)  →  docker compose up -d --build
+# Painel web (depois de gerar com ./gradlew :composeApp:wasmJsBrowserDevelopmentExecutableDistribution):
+#       docker compose --profile painel up -d
+name: tenviti
+
 services:
   banco:
     image: postgres:16-alpine
-    container_name: cardapio-banco
+    container_name: tenviti-banco
     environment:
-      POSTGRES_DB: cardapio
-      POSTGRES_USER: cardapio
+      POSTGRES_DB: tenviti
+      POSTGRES_USER: ${DB_USUARIO:-tenviti}
       POSTGRES_PASSWORD: ${DB_SENHA:?defina DB_SENHA no .env}
     volumes:
       - banco-dados:/var/lib/postgresql/data
@@ -14,7 +18,7 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cardapio -d cardapio"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USUARIO:-tenviti} -d tenviti"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -22,28 +26,42 @@ services:
   servidor:
     build:
       context: .
-      dockerfile: LDLanchesASW/server/Dockerfile
-    container_name: cardapio-servidor
+      dockerfile: tenviti/server/Dockerfile
+    container_name: tenviti-servidor
     depends_on:
       banco:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:postgresql://banco:5432/cardapio
-      DB_USUARIO: cardapio
+      DB_URL: jdbc:postgresql://banco:5432/tenviti
+      DB_USUARIO: ${DB_USUARIO:-tenviti}
       DB_SENHA: ${DB_SENHA}
       JWT_SEGREDO: ${JWT_SEGREDO:?defina JWT_SEGREDO no .env (openssl rand -hex 32)}
       SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-}
       SUPERADMIN_SENHA: ${SUPERADMIN_SENHA:-}
       CORS_ORIGENS: ${CORS_ORIGENS:-http://localhost:8080}
-      CARDAPIO_WEB_DIR: /app/cardapio-web
+      VITRINE_WEB_DIR: /app/vitrine
       MIDIA_DIR: /app/midia
+      DADOS_EXEMPLO: ${DADOS_EXEMPLO:-false}
+      THAI_DONO_EMAIL: ${THAI_DONO_EMAIL:-}
+      THAI_DONO_SENHA: ${THAI_DONO_SENHA:-}
+      LD_DONO_EMAIL: ${LD_DONO_EMAIL:-}
+      LD_DONO_SENHA: ${LD_DONO_SENHA:-}
     volumes:
-      # Desenvolvimento: alterações no CardapioWeb aparecem sem rebuild da imagem
-      - ./CardapioWeb:/app/cardapio-web:ro
+      # Desenvolvimento: alterações na vitrine aparecem sem rebuild da imagem
+      - ./vitrine:/app/vitrine:ro
       # Imagens enviadas pelas lojas (fotos de produto, logo, banner)
       - midia:/app/midia
     ports:
       - "8081:8081"
+
+  painel:
+    image: nginx:1.27-alpine
+    container_name: tenviti-painel
+    profiles: ["painel"]
+    volumes:
+      - ./tenviti/composeApp/build/dist/wasmJs/developmentExecutable:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
 
 volumes:
   banco-dados:

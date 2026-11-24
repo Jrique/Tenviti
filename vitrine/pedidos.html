@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meus Pedidos · Tenviti</title>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/tema-loja.css" />
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="limite header-container">
+            <div class="header-left">
+                <div class="brand-logo">
+                    <img src="images/loja-padrao.svg" alt="Logo da loja" />
+                </div>
+                <div class="header-info">
+                    <a href="index.html" class="logo-text"></a>
+                    <div class="loja-status">
+                        <span class="loja-status-titulo" id="loja-status-flag">Entrega Rápida</span>
+                        <span class="loja-status-desc" id="loja-status-desc">Tempo médio 30 min - Região Centro</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <button type="button" class="header-icon-btn" id="btn-header-entrega" aria-label="Dados de entrega">
+                    <img src="images/perfil.png" alt="Dados de entrega" />
+                </button>
+
+                <a href="carrinho.html" class="header-icon-btn" aria-label="Sacola">
+                    <img src="images/sacola.png" alt="Sacola" />
+                    <span id="cart-badge" class="cart-badge">0</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- MODAL PERFIL (único) -->
+    <div id="modal-perfil" class="modal-overlay">
+        <div class="modal-card">
+            <button class="modal-close" id="modal-close-btn">✕</button>
+
+            <div class="modal-titulo">
+                <span>Dados para Entrega</span>
+            </div>
+
+            <div class="modal-msg">
+                Preencha seus dados. Vamos salvar para facilitar seus próximos pedidos.
+            </div>
+
+            <form id="perfil-form" class="modal-form">
+                <div>
+                    <label>Nome completo</label>
+                    <input id="perfilNome" type="text" placeholder="Seu nome completo" required />
+                </div>
+
+                <div>
+                    <label>CEP</label>
+                    <input id="perfilCep" type="text" placeholder="Apenas números" maxlength="9" />
+                </div>
+
+                <div>
+                    <label>Rua / Logradouro</label>
+                    <input id="perfilLogradouro" type="text" placeholder="Ex: Rua das Palmeiras" required />
+                </div>
+
+                <div>
+                    <label>Número</label>
+                    <input id="perfilNumero" type="text" placeholder="Ex: 123" required />
+                </div>
+
+                <div>
+                    <label>Bairro</label>
+                    <input id="perfilBairro" type="text" placeholder="Ex: Centro" required />
+                </div>
+
+                <div>
+                    <label>Cidade</label>
+                    <input id="perfilCidade" type="text" placeholder="Ex: São Paulo" required />
+                </div>
+
+                <div>
+                    <label>UF</label>
+                    <input id="perfilUf" type="text" placeholder="Ex: SP" maxlength="2" />
+                </div>
+
+                <div>
+                    <label>Telefone / WhatsApp</label>
+                    <input id="perfilTelefone" type="tel" placeholder="(00) 00000-0000" required />
+                </div>
+
+                <div>
+                    <label>Complemento / Referência</label>
+                    <textarea id="perfilComplemento" rows="2" placeholder="Apartamento, portão, ponto de referência"></textarea>
+                </div>
+            </form>
+
+            <div class="modal-actions">
+                <button class="modal-btn-primary" id="perfil-salvar-btn">
+                    <span>Salvar</span>
+                </button>
+                <button class="modal-btn-secundario" id="modal-cancelar-btn">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE AVISO (para showActionFeedback) -->
+    <div id="modal-msg" class="modal-overlay">
+        <div class="modal-card">
+            <button class="modal-close" id="modal-msg-close-btn">✕</button>
+
+            <div class="modal-titulo">
+                <span id="modal-msg-title">Aviso</span>
+            </div>
+
+            <div class="modal-msg" id="modal-msg-text">
+                Tudo certo.
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn-primary" id="modal-msg-ok-btn">
+                    <span>OK</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO -->
+    <main class="limite pedidos-page">
+        <h2 class="secao-titulo">Meus pedidos</h2>
+        <div id="order-list-container"></div>
+        <div class="espaco-bottom-nav"></div>
+    </main>
+
+    <!-- BOTÃO FLUTUANTE WHATS (único) -->
+    <button class="whats-fab" id="btn-whats-flutuante" aria-label="Atendimento WhatsApp">
+        <img src="images/whatsapp.png" alt="WhatsApp" />
+    </button>
+
+    <!-- NAV INFERIOR -->
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-link">
+            <img src="images/inicio.png" class="icon-nav" alt="Início" />
+            <span class="nav-texto">Início</span>
+        </a>
+
+        <a href="carrinho.html" class="nav-link">
+            <img src="images/sacola.png" class="icon-nav" alt="Sacola" />
+            <span class="nav-texto">Sacola</span>
+        </a>
+
+        <a href="pedidos.html" class="nav-link active">
+            <img src="images/pedidos.png" class="icon-nav" alt="Pedidos" />
+            <span class="nav-texto">Pedidos</span>
+        </a>
+    </nav>
+
+    <script src="script.js"></script>
+    <script>
+        function preencherListaPedidos() {
+            const orderListContainer = document.getElementById('order-list-container');
+            if (!orderListContainer) return;
+    
+            const pedidos = typeof getPedidos === 'function' ? getPedidos() : [];
+    
+            if (!pedidos || pedidos.length === 0) {
+                orderListContainer.innerHTML = `
+                    <p class="carrinho-vazio">
+                        Você ainda não fez nenhum pedido por aqui.<br>
+                        Assim que você confirmar um pedido, ele aparece nesta lista.
+                    </p>
+                `;
+                return;
+            }
+    
+            orderListContainer.innerHTML = '';
+    
+            pedidos.forEach(p => {
+                // status "cru" (backend ou antigo)
+                const statusCodeRaw = (p.status || '').toString();
+                // rótulo amigável (se existir)
+                const statusLabel = p.statusLabel 
+                    || (typeof mapStatusLabel === 'function'
+                        ? mapStatusLabel(statusCodeRaw)
+                        : statusCodeRaw || 'Pendente');
+    
+                // normaliza pra comparar
+                const normalized = statusCodeRaw.trim().toUpperCase().replace(/\s+/g, '_');
+    
+                let badgeIcon  = '';
+                let badgeText  = statusLabel || 'Pendente';
+                let statusCss  = 'pendente';
+    
+                switch (normalized) {
+                    // pedidos novos / vistos = aguardando preparo
+                    case 'NOVO':
+                    case 'PENDENTE':
+                        badgeIcon = '⏳';
+                        badgeText = 'Novo';
+                        statusCss = 'pendente';
+                        break;
+                    case 'VISTO':
+                        badgeText = 'Recebido pela loja';
+                        statusCss = 'pendente';
+                        break;
+    
+                    // preparo
+                    case 'EM_PREPARO':
+                    case 'PREPARANDO':
+                        badgeIcon = '⏱';
+                        badgeText = 'Em preparo';
+                        statusCss = 'preparando';
+                        break;
+    
+                    // saiu pra entrega
+                    case 'SAIU_PARA_ENTREGA':
+                        badgeIcon = '🚚';
+                        badgeText = 'Saiu para entrega';
+                        statusCss = 'preparando';
+                        break;
+    
+                    // finalizado / entregue
+                    case 'FINALIZADO':
+                    case 'ENTREGUE':
+                        badgeIcon = '✔';
+                        badgeText = 'Entregue';
+                        statusCss = 'entregue';
+                        break;
+    
+                    // cancelado
+                    case 'CANCELADO':
+                        badgeIcon = '✖';
+                        badgeText = 'Cancelado';
+                        statusCss = 'cancelado';
+                        break;
+    
+                    default:
+                        badgeText = statusLabel || 'Pendente';
+                        statusCss = 'pendente';
+                }
+    
+                const itensResumo = (p.itens || [])
+                    .map(i => `${i.quantidade}x ${i.nome}`)
+                    .join(', ');
+    
+                // usa 'date' vinda do backend ("Hoje, 15:30") se existir
+                const dataLabel = p.date 
+                    || p.dataDisplay
+                    || (p.dataIso ? new Date(p.dataIso).toLocaleString('pt-BR') : '');
+
+                    let statusHoraLabel = '';
+                    if (p.statusUpdatedAt) {
+                        try {
+                            const dtStatus = new Date(p.statusUpdatedAt);
+                            if (!isNaN(dtStatus.getTime())) {
+                                statusHoraLabel = dtStatus.toLocaleTimeString('pt-BR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                            }
+                        } catch (e) {
+                        }
+                    }
+    
+                const totalNumber = typeof p.total === 'number' ? p.total : 0;
+                const totalLabel  = totalNumber.toFixed(2).replace('.', ',');
+    
+                const card = `
+                    <div class="pedido-card ${statusCss}">
+                        <div class="pedido-top">
+                            <span>Pedido #${p.id}</span>
+                            <span>${dataLabel}</span>
+                            
+                        </div>
+                        <div class="pedido-itens">
+                            ${itensResumo || 'Itens não informados'}<br>
+                            ${p.agendadoPara ? `Encomenda para: ${p.agendadoPara.split('T')[0].split('-').reverse().join('/')} às ${p.agendadoPara.split('T')[1]}<br>` : ''}
+                            Total: R$ ${totalLabel}
+                        </div>
+                        <div class="pedido-status-badge ${statusCss}">
+                            <span>${badgeIcon}</span>
+                            <span>${badgeText}</span>
+                            ${statusHoraLabel ? `<span class="status-hora">${statusHoraLabel}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+                orderListContainer.insertAdjacentHTML('beforeend', card);
+            });
+        }
+    
+        document.addEventListener('DOMContentLoaded', () => {
+            atualizarBadgeCarrinho();
+            configurarBotaoHeaderEntrega();
+            configurarBotaoWhatsFlutuante();
+            atualizarStatusLoja();
+    
+            const salvarBtn = document.getElementById('perfil-salvar-btn');
+            const cancelBtn = document.getElementById('modal-cancelar-btn');
+            const closeBtn  = document.getElementById('modal-close-btn');
+    
+            if (salvarBtn) salvarBtn.addEventListener('click', salvarPerfilDoModal);
+            if (cancelBtn) cancelBtn.addEventListener('click', fecharModalPerfilGlobal);
+            if (closeBtn)  closeBtn.addEventListener('click', fecharModalPerfilGlobal);
+    
+            const perfil = getPerfil();
+            if (perfilIncompleto(perfil)) {
+                // abrirModalPerfilGlobal();
+            }
+    
+            // 1ª renderização (status local, logo após o pedido)
+            preencherListaPedidos();
+        });
+    </script>
+    
+</body>
+</html>

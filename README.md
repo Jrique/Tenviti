@@ -2,19 +2,21 @@
 
 > **Tem. Vi. Tive.** A loja tem, o cliente vê, o pedido acontece.
 
-Sistema de pedidos e gestão para lojas de alimentação, oferecido como **SaaS para várias lojas**
-(multi-loja). Cada loja tem seu cardápio online, sua equipe, seus pedidos e sua própria aparência.
+Plataforma para **microempreendedores** venderem e atenderem pela internet: vitrine online, pedidos,
+encomendas e (em breve) serviços com hora marcada. É um **SaaS multi-loja**: cada loja tem sua vitrine,
+sua equipe, seus pedidos e sua própria aparência, e liga só os módulos que usa.
 
 ## Estrutura do repositório
 
 ```
-CardapioWeb/          Cardápio público (HTML/CSS/JS leve) — servido pelo servidor em /{loja}/
-LDLanchesASW/
+vitrine/              Vitrine pública (HTML/CSS/JS leve) — servida pelo servidor em /{loja}/
+  lojas/<slug>/       Logo e banner das lojas de exemplo
+tenviti/
   shared/             Contratos da API (DTOs, enums, formatos) — Kotlin Multiplatform
   server/             Backend Ktor + PostgreSQL (Exposed + Flyway)
   composeApp/         Painel de gestão (Android, Desktop e Web) — Compose Multiplatform
 infra/postgres/       Scripts de inicialização do PostgreSQL local
-docker-compose.yml    PostgreSQL + servidor
+docker-compose.yml    PostgreSQL + servidor (+ painel web com --profile painel)
 .env.exemplo          Variáveis de ambiente (copie para .env)
 ```
 
@@ -26,7 +28,7 @@ docker-compose.yml    PostgreSQL + servidor
 | **Dono** | Cardápio, pedidos, equipe e aparência (dentro do que foi liberado) | App → painel da loja |
 | **Gerente** | Igual ao dono, menos aparência e cadastro de dono/gerente | App |
 | **Atendente / Cozinha** | Pedidos | App → Vendas |
-| **Cliente final** | Faz pedidos pelo cardápio | `https://seu-dominio/{endereco-da-loja}/` |
+| **Cliente final** | Faz pedidos pela vitrine | `https://seu-dominio/{endereco-da-loja}/` |
 
 - Toda tabela com dados de loja tem `loja_id` e toda consulta filtra por ele (há testes garantindo que
   uma loja não enxerga dados de outra).
@@ -39,23 +41,29 @@ docker-compose.yml    PostgreSQL + servidor
 Pré-requisitos: Docker. (Para rodar o app fora do Docker: JDK 17+ e, para Android, o Android Studio.)
 
 ```bash
-cp .env.exemplo .env          # preencha DB_SENHA, JWT_SEGREDO e SUPERADMIN_*
+cp .env.exemplo .env          # preencha DB_SENHA, JWT_SEGREDO, SUPERADMIN_* e os donos de exemplo
 docker compose up -d --build  # sobe PostgreSQL + servidor em http://localhost:8081
 ```
 
 Na primeira subida o servidor cria o super admin com `SUPERADMIN_EMAIL`/`SUPERADMIN_SENHA`.
-Depois:
+Com `DADOS_EXEMPLO=true` ele também cria as **lojas de exemplo** (dados fictícios), só se ainda não
+existirem:
 
-1. Abra o painel (desktop: `cd LDLanchesASW && ./gradlew :composeApp:run`) e entre como super admin.
-2. Crie uma loja (ex.: endereço `ld-lanches`) com o e-mail e a senha do dono.
-3. Entre com o usuário do dono e cadastre categorias e produtos.
-4. O cardápio fica em http://localhost:8081/ld-lanches/
+| Loja | Vitrine | Dono (no `.env`) |
+|---|---|---|
+| Thai Cookies (encomenda de cookies, horários, boxes "escolha N sabores", depoimentos) | http://localhost:8081/thai-cookies/ | `THAI_DONO_EMAIL` / `THAI_DONO_SENHA` |
+| LD Lanches (lanchonete com adicionais) | http://localhost:8081/ld-lanches/ | `LD_DONO_EMAIL` / `LD_DONO_SENHA` |
+
+Para recomeçar do zero: `docker compose down -v && docker compose up -d` (apaga o banco local e as
+imagens enviadas; as lojas de exemplo são recriadas).
 
 ### Painel web e Android
 
 ```bash
-cd LDLanchesASW
+cd tenviti
 ./gradlew :composeApp:wasmJsBrowserDevelopmentRun   # painel web em http://localhost:8080
+# ou: gere com :composeApp:wasmJsBrowserDevelopmentExecutableDistribution e sirva com
+#     docker compose --profile painel up -d
 ./gradlew :composeApp:assembleDebug                 # APK (emulador acessa o servidor em 10.0.2.2:8081)
 ```
 
@@ -73,12 +81,12 @@ cd LDLanchesASW
 
 ## Rodando os testes
 
-Os testes do servidor são de integração e usam um PostgreSQL real (banco `cardapio_teste`, criado
+Os testes do servidor são de integração e usam um PostgreSQL real (banco `tenviti_teste`, criado
 automaticamente pelo `docker compose` na primeira subida):
 
 ```bash
-cd LDLanchesASW
-DB_URL_TESTE=jdbc:postgresql://localhost:5432/cardapio_teste DB_SENHA_TESTE=<sua DB_SENHA> ./gradlew :shared:jvmTest :server:test
+cd tenviti
+DB_URL_TESTE=jdbc:postgresql://localhost:5432/tenviti_teste DB_SENHA_TESTE=<sua DB_SENHA> ./gradlew :shared:jvmTest :server:test
 ```
 
 ## API (resumo)
@@ -89,7 +97,7 @@ DB_URL_TESTE=jdbc:postgresql://localhost:5432/cardapio_teste DB_SENHA_TESTE=<sua
 | `/api/admin/lojas` | super admin |
 | `/api/painel/{loja,loja/informacoes,usuarios,categorias,produtos,pedidos,dashboard,depoimentos}` | usuários da loja (por papel) |
 | `POST /api/painel/arquivos` (multipart, campo `arquivo`) | envio de imagem (PNG/JPG/WEBP, até 5 MB) → `/midia/...` |
-| `/api/public/lojas/{slug}` (+ `/categorias`, `/produtos`, `/pedidos`, `/agenda`, `/depoimentos`) | público (cardápio) |
+| `/api/public/lojas/{slug}` (+ `/categorias`, `/produtos`, `/pedidos`, `/agenda`, `/depoimentos`) | público (vitrine) |
 
 Erros sempre voltam como `{"mensagem": "...", "codigo": "..."}` com a mensagem pronta para o usuário.
 
@@ -100,9 +108,17 @@ Erros sempre voltam como `{"mensagem": "...", "codigo": "..."}` com a mensagem p
 - [x] **Fase 1 — Cardápio completo**: fotos (upload em disco), grupos de opções com mín./máx.,
   preço promocional, produto pausado, horários e pausa da loja, encomenda agendada com antecedência e
   limite de pedidos por dia, contato/endereço/Instagram e depoimentos.
-- [ ] **Fase 2 — Pedidos de verdade**: itens estruturados, preço calculado no servidor, áreas de entrega,
-  tempo real (WebSocket), tela da cozinha, impressão.
-- [ ] **Fase 3 — Mercado Pago**: Pix e cartão, webhooks, estorno.
+- [ ] **Fase 2 — Tenviti**:
+  - [x] Bloco 1: nome Tenviti em todo o projeto, lojas de exemplo recriáveis
+  - [ ] Bloco 2: pedido com itens estruturados e preço calculado no servidor, dados do cliente,
+    taxa de entrega fixa e pedido mínimo
+  - [ ] Bloco 3: serviços com hora marcada (duração, horários livres, agendamento)
+  - [ ] Bloco 4: convite, planos (Básico/Pró) e 1º mês grátis, cobrança manual
+  - [ ] Bloco 5: painel com a identidade Tenviti (paleta acolhedora, modo escuro, tela "Hoje")
+  - [ ] Bloco 6: página do Tenviti
+  - [ ] Bloco 7: vitrine nova (mobile-first, mantendo as cores de cada loja)
+- [ ] **Fase 3 — Mercado Pago**: Pix e cartão, webhooks, estorno, cobrança automática das lojas;
+  tempo real (WebSocket), tela da cozinha, impressão, áreas de entrega.
 - [ ] **Fase 4 — Gestão**: caixa, estoque/ficha técnica, entregadores, cupons, fidelidade.
 - [ ] **Fase 5 — Relatórios**.
 - [ ] **Depois — WhatsApp**.

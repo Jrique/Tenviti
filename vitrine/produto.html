@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Detalhes do Produto · Tenviti</title>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+    <link rel="stylesheet" href="./css/tema-loja.css" />
+</head>
+<body>
+
+    <header class="header">
+        <div class="limite header-container">
+            <div class="header-left">
+                <div class="brand-logo">
+                    <img src="images/loja-padrao.svg" alt="Logo da loja" />
+                </div>
+                <div class="header-info">
+                    <a href="index.html" class="logo-text"></a>
+                    <div class="loja-status">
+                        <span class="loja-status-titulo" id="loja-status-flag">Entrega Rápida</span>
+                        <span class="loja-status-desc" id="loja-status-desc">Tempo médio 30 min - Região Centro</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-right">
+
+                <button type="button" class="header-icon-btn" id="btn-header-entrega" aria-label="Dados de entrega">
+                    <img src="images/perfil.png" alt="Dados de entrega" />
+                </button>
+                
+                <a href="carrinho.html" class="header-icon-btn">
+                    <img src="images/sacola.png" alt="Sacola" />
+                    <span id="cart-badge" class="cart-badge">0</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div id="modal-perfil" class="modal-overlay">
+        <div class="modal-card">
+            <button class="modal-close" id="modal-close-btn">✕</button>
+    
+            <div class="modal-titulo">
+                <span>Dados para Entrega</span>
+            </div>
+    
+            <div class="modal-msg">
+                Preencha seus dados. Vamos salvar para facilitar seus próximos pedidos.
+            </div>
+    
+            <form id="perfil-form" class="modal-form">
+                <div>
+                    <label>Nome completo</label>
+                    <input id="perfilNome" type="text" placeholder="Seu nome completo" required />
+                </div>
+    
+                <div>
+                    <label>CEP</label>
+                    <input id="perfilCep" type="text" placeholder="Apenas números" maxlength="9" />
+                </div>
+    
+                <div>
+                    <label>Rua / Logradouro</label>
+                    <input id="perfilLogradouro" type="text" placeholder="Ex: Rua das Palmeiras" required />
+                </div>
+    
+                <div>
+                    <label>Número</label>
+                    <input id="perfilNumero" type="text" placeholder="Ex: 123" required />
+                </div>
+    
+                <div>
+                    <label>Bairro</label>
+                    <input id="perfilBairro" type="text" placeholder="Ex: Centro" required />
+                </div>
+    
+                <div>
+                    <label>Cidade</label>
+                    <input id="perfilCidade" type="text" placeholder="Ex: São Paulo" required />
+                </div>
+    
+                <div>
+                    <label>UF</label>
+                    <input id="perfilUf" type="text" placeholder="Ex: SP" maxlength="2" />
+                </div>
+    
+                <div>
+                    <label>Telefone / WhatsApp</label>
+                    <input id="perfilTelefone" type="tel" placeholder="(00) 00000-0000" required />
+                </div>
+    
+                <div>
+                    <label>Complemento / Referência</label>
+                    <textarea id="perfilComplemento" rows="2" placeholder="Apartamento, portão, ponto de referência"></textarea>
+                </div>
+            </form>
+    
+            <div class="modal-actions">
+                <button class="modal-btn-primary" id="perfil-salvar-btn">
+                    <span>Salvar</span>
+                </button>
+                <button class="modal-btn-secundario" id="modal-cancelar-btn">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+
+    <main class="limite produto-page">
+        <div id="detalhes-produto-container" class="produto-detalhe-card">
+        </div>
+
+        <div class="espaco-bottom-nav"></div>
+    </main>
+
+    <div id="modal-msg" class="modal-overlay">
+        <div class="modal-card">
+            <button class="modal-close" id="modal-msg-close-btn">✕</button>
+
+            <div class="modal-titulo">
+                <span id="modal-msg-title">Aviso</span>
+            </div>
+
+            <div class="modal-msg" id="modal-msg-text">
+                Tudo certo.
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn-primary" id="modal-msg-ok-btn">
+                    <span>OK</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-link active">
+            <img src="images/inicio.png" class="icon-nav" alt="Início" />
+            <span class="nav-texto">Início</span>
+        </a>
+
+        <a href="carrinho.html" class="nav-link">
+            <img src="images/sacola.png" class="icon-nav" alt="Sacola" />
+            <span class="nav-texto">Sacola</span>
+        </a>
+
+        <a href="pedidos.html" class="nav-link">
+            <img src="images/pedidos.png" class="icon-nav" alt="Pedidos" />
+            <span class="nav-texto">Pedidos</span>
+        </a>
+
+    </nav>
+
+    <script src="script.js"></script>
+    <script>
+        const reais = v => 'R$ ' + v.toFixed(2).replace('.', ',');
+
+        /** Texto da regra do grupo: "Obrigatório · escolha 4", "Opcional · até 3"... */
+        function regraDoGrupo(g) {
+            if (g.minimo > 0 && g.minimo === g.maximo) return `Obrigatório · escolha ${g.minimo}`;
+            if (g.minimo > 0) return `Obrigatório · de ${g.minimo} a ${g.maximo}`;
+            return g.maximo === 1 ? 'Opcional · escolha 1' : `Opcional · até ${g.maximo}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            atualizarBadgeCarrinho();
+            configurarBotaoHeaderEntrega();
+            configurarBotaoWhatsFlutuante();
+
+            const params = new URLSearchParams(window.location.search);
+            const id = parseInt(params.get('id'), 10);
+
+            await carregarProdutosDoBackend();
+
+            const detalhesContainer = document.getElementById('detalhes-produto-container');
+            const produto = mockProdutos.find(p => p.id === id);
+
+            if (!produto) {
+                detalhesContainer.innerHTML = '<p class="carrinho-vazio">Produto não encontrado.</p>';
+                return;
+            }
+
+            const grupos = produto.grupos || [];
+            // quantidades escolhidas: qtd[g][o]
+            const qtd = grupos.map(g => g.opcoes.map(() => 0));
+
+            const gruposHtml = grupos.map((g, gi) => `
+                <div class="produto-extras grupo-opcoes" data-grupo="${gi}">
+                    <div class="grupo-cabecalho">
+                        <h3 class="produto-extras-titulo">${g.nome}</h3>
+                        <span class="grupo-regra ${g.minimo > 0 ? 'grupo-obrigatorio' : ''}">${regraDoGrupo(g)}</span>
+                        <span class="grupo-contador" id="contador-${gi}">0/${g.maximo}</span>
+                    </div>
+                    <div class="produto-extras-lista">
+                        ${g.opcoes.map((o, oi) => `
+                            <div class="produto-extra-item">
+                                <span class="produto-extra-nome">
+                                    ${o.nome}${o.preco > 0 ? ` <small>(+ ${reais(o.preco)})</small>` : ''}
+                                </span>
+                                <div class="produto-extra-controle">
+                                    <button class="extra-btn extra-menor" data-g="${gi}" data-o="${oi}" aria-label="Remover ${o.nome}">-</button>
+                                    <span class="extra-qtd" id="qtd-${gi}-${oi}">0</span>
+                                    <button class="extra-btn extra-maior" data-g="${gi}" data-o="${oi}" aria-label="Adicionar ${o.nome}">+</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
+            detalhesContainer.innerHTML = `
+                <div class="produto-detalhe-img">
+                    <img src="${produto.imagemUrl}" alt="${produto.nome}">
+                </div>
+
+                <div class="produto-detalhe-nome">${produto.nome}</div>
+                <div class="produto-detalhe-preco">
+                    ${produto.precoOriginal ? `<span class="preco-antigo">${reais(produto.precoOriginal)}</span>` : ''}
+                    ${reais(produto.preco)}
+                </div>
+
+                <div class="produto-detalhe-desc">${produto.descricao}</div>
+
+                ${gruposHtml}
+
+                <div class="grupo-aviso" id="grupo-aviso"></div>
+                <button class="produto-add-btn" id="add-btn">
+                    <span id="add-btn-texto">Adicionar à sacola</span>
+                </button>
+            `;
+
+            const totalDoGrupo = gi => qtd[gi].reduce((a, b) => a + b, 0);
+
+            function atualizarTela() {
+                let precoUnidade = produto.preco;
+                let pendencia = null;
+                grupos.forEach((g, gi) => {
+                    const total = totalDoGrupo(gi);
+                    document.getElementById(`contador-${gi}`).textContent = `${total}/${g.maximo}`;
+                    g.opcoes.forEach((o, oi) => {
+                        document.getElementById(`qtd-${gi}-${oi}`).textContent = qtd[gi][oi];
+                        precoUnidade += o.preco * qtd[gi][oi];
+                    });
+                    if (!pendencia && total < g.minimo) {
+                        const falta = g.minimo - total;
+                        pendencia = `Escolha mais ${falta} em "${g.nome}".`;
+                    }
+                });
+                const btn = document.getElementById('add-btn');
+                btn.disabled = !!pendencia;
+                document.getElementById('add-btn-texto').textContent = `Adicionar à sacola · ${reais(precoUnidade)}`;
+                document.getElementById('grupo-aviso').textContent = pendencia || '';
+            }
+
+            detalhesContainer.querySelectorAll('.extra-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const gi = parseInt(btn.dataset.g, 10);
+                    const oi = parseInt(btn.dataset.o, 10);
+                    const g = grupos[gi];
+                    const maxPorOpcao = g.permiteRepetir ? g.maximo : 1;
+
+                    if (btn.classList.contains('extra-maior')) {
+                        if (g.maximo === 1) {
+                            // escolha única: troca a seleção
+                            qtd[gi] = qtd[gi].map((_, i) => (i === oi ? 1 : 0));
+                        } else if (totalDoGrupo(gi) < g.maximo && qtd[gi][oi] < maxPorOpcao) {
+                            qtd[gi][oi] += 1;
+                        }
+                    } else if (qtd[gi][oi] > 0) {
+                        qtd[gi][oi] -= 1;
+                    }
+                    atualizarTela();
+                });
+            });
+
+            document.getElementById('add-btn').addEventListener('click', () => {
+                const selecoes = [];
+                grupos.forEach((g, gi) => g.opcoes.forEach((o, oi) => {
+                    if (qtd[gi][oi] > 0) selecoes.push({ grupo: g.nome, nome: o.nome, preco: o.preco, qtd: qtd[gi][oi] });
+                }));
+                addToCart(produto, selecoes);
+                atualizarBadgeCarrinho();
+                showActionFeedback('Adicionado à sacola', produto.nome + ' foi adicionado na sua sacola.');
+            });
+
+            atualizarTela();
+
+            // modal de perfil
+            const salvarBtn = document.getElementById('perfil-salvar-btn');
+            const cancelBtn = document.getElementById('modal-cancelar-btn');
+            const closeBtn  = document.getElementById('modal-close-btn');
+
+            if (salvarBtn) salvarBtn.addEventListener('click', salvarPerfilDoModal);
+            if (cancelBtn) cancelBtn.addEventListener('click', fecharModalPerfilGlobal);
+            if (closeBtn)  closeBtn.addEventListener('click', fecharModalPerfilGlobal);
+
+            const perfil = getPerfil();
+            if (perfilIncompleto(perfil)) {
+                abrirModalPerfilGlobal();
+                if (typeof registrarEventosCepPerfil === 'function') {
+                    registrarEventosCepPerfil();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
