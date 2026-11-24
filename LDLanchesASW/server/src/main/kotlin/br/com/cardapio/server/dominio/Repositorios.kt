@@ -1,6 +1,7 @@
 package br.com.cardapio.server.dominio
 
 import java.time.Instant
+import java.time.LocalDate
 
 // Contratos de persistência. O domínio define o que precisa; a infra implementa.
 // Todo método de dados de loja recebe o lojaId — é isso que garante o isolamento entre lojas.
@@ -37,11 +38,28 @@ interface RepositorioCatalogo {
     fun removerProduto(lojaId: Long, id: Long)
 }
 
+interface RepositorioDepoimentos {
+    fun listar(lojaId: Long, somenteAtivos: Boolean): List<Depoimento>
+    fun buscar(lojaId: Long, id: Long): Depoimento?
+    fun salvar(depoimento: Depoimento): Depoimento
+    fun remover(lojaId: Long, id: Long)
+}
+
+/** Onde ficam as imagens enviadas pelas lojas (disco hoje; nuvem no futuro, sem mudar quem usa). */
+interface ArmazenamentoArquivos {
+    /** Grava o arquivo e devolve o endereço público dele (ex.: /midia/3/abc.png). */
+    fun salvar(lojaId: Long, extensao: String, conteudo: ByteArray): String
+}
+
 interface RepositorioPedidos {
     fun buscar(lojaId: Long, id: Long): Pedido?
     fun buscarPorCodigo(lojaId: Long, codigo: String): Pedido?
     fun existeCodigo(lojaId: Long, codigo: String): Boolean
     fun listar(lojaId: Long, de: Instant, ate: Instant, limite: Int): List<Pedido>
+    /** Pedidos não cancelados por dia de produção, no intervalo [de, ate]. */
+    fun contarPorDia(lojaId: Long, de: LocalDate, ate: LocalDate): Map<LocalDate, Int>
+    /** Trava (até o fim da transação) a contagem de pedidos de um dia da loja, para o limite diário. */
+    fun travarDia(lojaId: Long, dia: LocalDate)
     fun salvar(pedido: Pedido): Pedido
 }
 

@@ -22,6 +22,61 @@
     color: var(--cor-acento-texto);
 }
 
+/* ---------- Fase 1: promoção, opções, depoimentos, sobre a loja, encomenda ---------- */
+.preco-antigo {
+    text-decoration: line-through;
+    opacity: 0.6;
+    font-size: 0.85em;
+    margin-right: 6px;
+    font-weight: 400;
+}
+
+.grupo-opcoes { margin-top: 16px; }
+.grupo-cabecalho { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.grupo-cabecalho .produto-extras-titulo { margin: 0; flex: 1 1 auto; }
+.grupo-regra {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--cor-borda);
+    color: var(--cor-texto-sec);
+}
+.grupo-regra.grupo-obrigatorio { background: var(--cor-acento); color: var(--cor-texto-sobre-acento); }
+.grupo-contador { font-size: 0.8rem; color: var(--cor-texto-sec); }
+.grupo-aviso { min-height: 1.2em; margin: 12px 0 4px; font-size: 0.85rem; color: var(--cor-acento-texto); }
+.produto-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.depoimentos, .sobre-loja { margin-top: 24px; }
+.depoimentos-lista { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.depoimento-card {
+    background: var(--cor-superficie);
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--radius-card);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-card);
+}
+.depoimento-nota { color: #F5B301; letter-spacing: 2px; margin-bottom: 6px; }
+.depoimento-texto { color: var(--cor-texto); font-style: italic; margin-bottom: 8px; }
+.depoimento-autor { color: var(--cor-texto-sec); font-size: 0.85rem; }
+
+.sobre-loja-card { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.sobre-bloco { display: flex; flex-direction: column; gap: 4px; color: var(--cor-texto); font-size: 0.9rem; }
+.sobre-bloco strong { margin-bottom: 4px; }
+.sobre-bloco a { color: var(--cor-acento-texto); }
+.horario-linha { display: flex; justify-content: space-between; gap: 12px; color: var(--cor-texto-sec); }
+
+.agendamento-card { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+.agendamento-campo { display: flex; flex-direction: column; gap: 6px; color: var(--cor-texto); font-size: 0.9rem; }
+.agendamento-campo select {
+    padding: 10px 12px;
+    border-radius: var(--radius-botao);
+    border: 1px solid var(--cor-borda);
+    background: var(--cor-superficie-2, #2a2a2a);
+    color: var(--cor-texto);
+    font: inherit;
+}
+.agendamento-nota { grid-column: 1 / -1; font-size: 0.8rem; color: var(--cor-texto-sec); }
+
 /* ---------- Tema claro (fundo da loja claro) ---------- */
 html[data-tema="claro"] {
     --cor-superficie:  #FFFFFF;

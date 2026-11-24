@@ -3,6 +3,7 @@ package br.com.cardapio.server.dominio
 import br.com.cardapio.shared.StatusPedido
 import java.security.SecureRandom
 import java.time.Instant
+import java.time.LocalDate
 
 /**
  * Pedido de uma loja.
@@ -19,6 +20,10 @@ class Pedido(
     status: StatusPedido,
     val criadoEm: Instant,
     atualizadoEm: Instant,
+    /** Encomenda: quando o cliente quer receber/retirar. */
+    val agendadoPara: Instant? = null,
+    /** Dia em que o pedido conta para o limite de produção (fuso da loja). */
+    val diaProducao: LocalDate,
 ) {
     var status: StatusPedido = status; private set
     var atualizadoEm: Instant = atualizadoEm; private set
@@ -37,11 +42,22 @@ class Pedido(
     }
 
     companion object {
-        fun novoDoCardapio(lojaId: Long, codigo: String, descricao: String, totalCentavos: Long, agora: Instant = Instant.now()): Pedido {
+        fun novoDoCardapio(
+            lojaId: Long,
+            codigo: String,
+            descricao: String,
+            totalCentavos: Long,
+            janela: JanelaDoPedido,
+            agora: Instant = Instant.now(),
+        ): Pedido {
             exigir(descricao.isNotBlank()) { "O pedido está vazio." }
             exigir(descricao.length <= 10_000) { "A descrição do pedido é muito longa." }
             exigir(totalCentavos > 0) { "O total do pedido deve ser maior que zero." }
-            return Pedido(0, lojaId, codigo, descricao.trim(), totalCentavos, StatusPedido.NOVO, agora, agora)
+            return Pedido(
+                0, lojaId, codigo, descricao.trim(), totalCentavos, StatusPedido.NOVO, agora, agora,
+                agendadoPara = janela.agendadoPara?.toInstant(),
+                diaProducao = janela.diaProducao,
+            )
         }
     }
 }

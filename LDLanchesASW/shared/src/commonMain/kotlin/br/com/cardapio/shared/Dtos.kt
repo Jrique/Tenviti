@@ -105,6 +105,60 @@ data class AtualizarLojaDto(
     val personalizacaoLiberada: Set<ItemPersonalizavel>,
 )
 
+// ---------- Dados e funcionamento da loja ----------
+
+@Serializable
+data class EnderecoDto(
+    val logradouro: String = "",
+    val numero: String = "",
+    val complemento: String? = null,
+    val bairro: String = "",
+    val cidade: String = "",
+    val uf: String = "",
+    val cep: String = "",
+)
+
+@Serializable
+data class ContatoLojaDto(
+    /** Telefone/WhatsApp só com dígitos, com DDD (ex.: 11987654321). */
+    val telefone: String? = null,
+    /** Usuário do Instagram sem o @. */
+    val instagram: String? = null,
+    val endereco: EnderecoDto? = null,
+)
+
+/** Intervalo de funcionamento. [diaSemana]: 1 = segunda … 7 = domingo. Horas "HH:mm"; fechar antes de abrir = vira a noite. */
+@Serializable
+data class IntervaloHorarioDto(val diaSemana: Int, val abre: String, val fecha: String)
+
+@Serializable
+data class EncomendaConfigDto(
+    /** Cliente pode escolher data/horário (exige o módulo AGENDAMENTO). */
+    val aceitaAgendamento: Boolean = false,
+    /** Todo pedido precisa ser agendado (loja só trabalha por encomenda). */
+    val exigeAgendamento: Boolean = false,
+    val antecedenciaMinimaHoras: Int = 0,
+    val diasMaximos: Int = 14,
+    /** Máximo de pedidos por dia de produção; null = sem limite. */
+    val limitePedidosPorDia: Int? = null,
+    val intervaloMinutos: Int = 30,
+)
+
+@Serializable
+data class FuncionamentoDto(
+    val pausada: Boolean = false,
+    val mensagemPausa: String? = null,
+    val horarios: List<IntervaloHorarioDto> = emptyList(),
+    val encomenda: EncomendaConfigDto = EncomendaConfigDto(),
+)
+
+/** Dados operacionais editados pelo dono/gerente (diferente da aparência, que tem permissões próprias). */
+@Serializable
+data class InformacoesLojaDto(
+    val contato: ContatoLojaDto = ContatoLojaDto(),
+    val funcionamento: FuncionamentoDto = FuncionamentoDto(),
+)
+
 /** O que o cliente final vê da loja no cardápio público. */
 @Serializable
 data class VitrineLojaDto(
@@ -112,7 +166,32 @@ data class VitrineLojaDto(
     val nome: String,
     val aparencia: AparenciaDto,
     val modulos: Set<Modulo>,
+    val contato: ContatoLojaDto = ContatoLojaDto(),
+    val horarios: List<IntervaloHorarioDto> = emptyList(),
+    val encomenda: EncomendaConfigDto = EncomendaConfigDto(),
+    /** Aberta agora (considera horários e pausa manual). */
+    val aberta: Boolean = true,
+    val pausada: Boolean = false,
+    val mensagemPausa: String? = null,
 )
+
+/** Dia disponível para encomenda e seus horários ("HH:mm"). */
+@Serializable
+data class DiaAgendaDto(val data: String, val horarios: List<String>, val lotado: Boolean = false)
+
+@Serializable
+data class DepoimentoDto(
+    val id: Long = 0,
+    val autor: String,
+    val texto: String,
+    /** Nota de 1 a 5 (opcional). */
+    val nota: Int? = null,
+    val ativo: Boolean = true,
+    val ordem: Int = 0,
+)
+
+@Serializable
+data class ArquivoDto(val url: String)
 
 // ---------- Catálogo ----------
 
@@ -123,6 +202,29 @@ data class CategoriaDto(val id: Long, val nome: String, val ordem: Int = 0)
 data class SalvarCategoriaDto(val nome: String, val ordem: Int = 0)
 
 @Serializable
+data class OpcaoDto(
+    val id: Long = 0,
+    val nome: String,
+    val precoCentavos: Long = 0,
+    val ativo: Boolean = true,
+)
+
+/**
+ * Grupo de opções de um produto. Ex.: "Escolha 4 sabores" (mínimo 4, máximo 4, pode repetir) ou
+ * "Adicionais" (mínimo 0, máximo 3). [minimo] > 0 torna o grupo obrigatório.
+ */
+@Serializable
+data class GrupoOpcoesDto(
+    val id: Long = 0,
+    val nome: String,
+    val minimo: Int = 0,
+    val maximo: Int = 1,
+    /** Permite escolher a mesma opção mais de uma vez (ex.: 2x Nutella num box). */
+    val permiteRepetir: Boolean = false,
+    val opcoes: List<OpcaoDto> = emptyList(),
+)
+
+@Serializable
 data class ProdutoDto(
     val id: Long,
     val categoriaId: Long? = null,
@@ -130,9 +232,12 @@ data class ProdutoDto(
     val nome: String,
     val descricao: String = "",
     val precoCentavos: Long,
-    /** Provisório até a Fase 1 (grupos de complementos). Formato: "Bacon:2,00; Ovo:1,50". */
-    val adicionais: String = "",
+    /** Preço "por" quando o produto está em promoção (menor que [precoCentavos]). */
+    val precoPromocionalCentavos: Long? = null,
+    val imagemUrl: String? = null,
+    val grupos: List<GrupoOpcoesDto> = emptyList(),
     val destaque: Boolean = false,
+    /** false = pausado/esgotado: some do cardápio público sem ser apagado. */
     val ativo: Boolean = true,
 )
 
@@ -142,7 +247,9 @@ data class SalvarProdutoDto(
     val nome: String,
     val descricao: String = "",
     val precoCentavos: Long,
-    val adicionais: String = "",
+    val precoPromocionalCentavos: Long? = null,
+    val imagemUrl: String? = null,
+    val grupos: List<GrupoOpcoesDto> = emptyList(),
     val destaque: Boolean = false,
     val ativo: Boolean = true,
 )
@@ -157,6 +264,8 @@ data class PedidoDto(
     val totalCentavos: Long,
     val status: StatusPedido,
     val criadoEm: String,
+    /** Data/hora da encomenda (ISO-8601 UTC), quando agendado. */
+    val agendadoPara: String? = null,
 )
 
 /**
@@ -165,7 +274,12 @@ data class PedidoDto(
  * estruturados com o preço calculado no servidor.
  */
 @Serializable
-data class NovoPedidoPublicoDto(val descricao: String, val totalCentavos: Long)
+data class NovoPedidoPublicoDto(
+    val descricao: String,
+    val totalCentavos: Long,
+    /** Encomenda: data e hora locais da loja, "AAAA-MM-DDTHH:mm" (um dos horários de /agenda). */
+    val agendadoPara: String? = null,
+)
 
 /** O que o cliente consegue consultar do próprio pedido (sem dados pessoais). */
 @Serializable
@@ -174,6 +288,7 @@ data class PedidoPublicoDto(
     val status: StatusPedido,
     val totalCentavos: Long,
     val criadoEm: String,
+    val agendadoPara: String? = null,
 )
 
 @Serializable

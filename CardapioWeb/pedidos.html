@@ -285,6 +285,7 @@
                         </div>
                         <div class="pedido-itens">
                             ${itensResumo || 'Itens não informados'}<br>
+                            ${p.agendadoPara ? `Encomenda para: ${p.agendadoPara.split('T')[0].split('-').reverse().join('/')} às ${p.agendadoPara.split('T')[1]}<br>` : ''}
                             Total: R$ ${totalLabel}
                         </div>
                         <div class="pedido-status-badge ${statusCss}">

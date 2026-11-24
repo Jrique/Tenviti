@@ -108,6 +108,7 @@ fun LayoutEstiloDesktop(
                 )
                 Tela.CATEGORIAS -> TelaCategorias()
                 Tela.CONFIGURACOES -> TelaConfiguracoes()
+                Tela.DADOS_LOJA -> TelaDadosLoja()
                 Tela.APARENCIA -> TelaAparencia()
             }
 

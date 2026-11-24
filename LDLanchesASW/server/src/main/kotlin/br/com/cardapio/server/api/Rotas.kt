@@ -1,6 +1,8 @@
 package br.com.cardapio.server.api
 
+import br.com.cardapio.server.aplicacao.ServicoArquivos
 import br.com.cardapio.server.aplicacao.ServicoAutenticacao
+import br.com.cardapio.server.aplicacao.ServicoDepoimentos
 import br.com.cardapio.server.aplicacao.ServicoCatalogo
 import br.com.cardapio.server.aplicacao.ServicoLojas
 import br.com.cardapio.server.aplicacao.ServicoPedidos
@@ -10,6 +12,8 @@ import br.com.cardapio.shared.AlterarStatusDto
 import br.com.cardapio.shared.AparenciaDto
 import br.com.cardapio.shared.AtualizarLojaDto
 import br.com.cardapio.shared.AtualizarUsuarioDto
+import br.com.cardapio.shared.DepoimentoDto
+import br.com.cardapio.shared.InformacoesLojaDto
 import br.com.cardapio.shared.LoginRequisicao
 import br.com.cardapio.shared.NovaLojaDto
 import br.com.cardapio.shared.NovoPedidoPublicoDto
@@ -18,6 +22,11 @@ import br.com.cardapio.shared.SalvarCategoriaDto
 import br.com.cardapio.shared.SalvarProdutoDto
 import br.com.cardapio.shared.TrocarSenhaRequisicao
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.PartData
+import io.ktor.http.content.forEachPart
+import io.ktor.server.request.receiveMultipart
+import io.ktor.utils.io.readRemaining
+import kotlinx.io.readByteArray
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.auth.authenticate
 import io.ktor.server.request.receive
@@ -39,6 +48,8 @@ class Servicos(
     val usuarios: ServicoUsuarios,
     val catalogo: ServicoCatalogo,
     val pedidos: ServicoPedidos,
+    val depoimentos: ServicoDepoimentos,
+    val arquivos: ServicoArquivos,
 )
 
 fun Route.rotasApi(s: Servicos) {
@@ -85,6 +96,8 @@ private fun Route.rotasPublicas(s: Servicos) = route("/public/lojas/{slug}") {
         val loja = s.lojas.lojaPublica(call.slug())
         call.respond(s.pedidos.consultarPublico(loja, call.parameters["codigo"].orEmpty()))
     }
+    get("/agenda") { call.respond(s.pedidos.agenda(s.lojas.lojaPublica(call.slug()))) }
+    get("/depoimentos") { call.respond(s.depoimentos.listarPublicos(s.lojas.lojaPublica(call.slug()).id)) }
 }
 
 private fun Route.rotasSuperAdmin(s: Servicos) = route("/admin/lojas") {
@@ -103,6 +116,39 @@ private fun Route.rotasPainel(s: Servicos) = route("/painel") {
     put("/loja/aparencia") {
         s.lojas.lojaDoPainel(call.ator())
         call.respond(s.lojas.personalizar(call.ator(), call.receive<AparenciaDto>()))
+    }
+    get("/loja/informacoes") {
+        s.lojas.lojaDoPainel(call.ator())
+        call.respond(s.lojas.informacoes(call.ator()))
+    }
+    put("/loja/informacoes") {
+        s.lojas.lojaDoPainel(call.ator())
+        call.respond(s.lojas.atualizarInformacoes(call.ator(), call.receive<InformacoesLojaDto>()))
+    }
+
+    post("/arquivos") {
+        s.lojas.lojaDoPainel(call.ator())
+        call.respond(HttpStatusCode.Created, s.arquivos.enviarImagem(call.ator(), call.lerArquivoEnviado()))
+    }
+
+    route("/depoimentos") {
+        get {
+            s.lojas.lojaDoPainel(call.ator())
+            call.respond(s.depoimentos.listar(call.ator()))
+        }
+        post {
+            s.lojas.lojaDoPainel(call.ator())
+            call.respond(HttpStatusCode.Created, s.depoimentos.criar(call.ator(), call.receive<DepoimentoDto>()))
+        }
+        put("/{id}") {
+            s.lojas.lojaDoPainel(call.ator())
+            call.respond(s.depoimentos.atualizar(call.ator(), call.id(), call.receive<DepoimentoDto>()))
+        }
+        delete("/{id}") {
+            s.lojas.lojaDoPainel(call.ator())
+            s.depoimentos.remover(call.ator(), call.id())
+            call.respond(HttpStatusCode.NoContent)
+        }
     }
 
     route("/usuarios") {
@@ -158,6 +204,12 @@ private fun Route.rotasPainel(s: Servicos) = route("/painel") {
                 ?: throw DadoInvalido("Informe ?valor=true ou ?valor=false.")
             call.respond(s.catalogo.marcarDestaque(call.ator(), call.id(), destaque))
         }
+        patch("/{id}/disponivel") {
+            s.lojas.lojaDoPainel(call.ator())
+            val disponivel = call.request.queryParameters["valor"]?.toBooleanStrictOrNull()
+                ?: throw DadoInvalido("Informe ?valor=true ou ?valor=false.")
+            call.respond(s.catalogo.definirDisponivel(call.ator(), call.id(), disponivel))
+        }
         delete("/{id}") {
             s.lojas.lojaDoPainel(call.ator())
             s.catalogo.removerProduto(call.ator(), call.id())
@@ -181,6 +233,18 @@ private fun Route.rotasPainel(s: Servicos) = route("/painel") {
         val dias = call.request.queryParameters["dias"]?.toIntOrNull()
         call.respond(s.pedidos.resumo(call.ator(), loja, dias, call.data("inicio"), call.data("fim")))
     }
+}
+
+/** Lê o primeiro arquivo de um envio multipart (campo "arquivo"), com limite de tamanho. */
+private suspend fun ApplicationCall.lerArquivoEnviado(): ByteArray {
+    var conteudo: ByteArray? = null
+    receiveMultipart(formFieldLimit = ServicoArquivos.TAMANHO_MAXIMO + 1024L).forEachPart { parte ->
+        if (parte is PartData.FileItem && conteudo == null) {
+            conteudo = parte.provider().readRemaining().readByteArray()
+        }
+        parte.dispose()
+    }
+    return conteudo ?: throw DadoInvalido("Nenhum arquivo enviado (campo \"arquivo\").")
 }
 
 private fun ApplicationCall.slug(): String = parameters["slug"].orEmpty().lowercase()

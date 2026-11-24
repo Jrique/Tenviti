@@ -20,8 +20,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.clickable
+import br.com.cardapio.app.api.rememberSeletorDeImagem
+import br.com.cardapio.app.data.ArquivoSelecionado
 import br.com.cardapio.app.data.Categoria
 import br.com.cardapio.app.data.Produto
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,14 +35,28 @@ fun ModalAdicionarProduto(
     onDismiss: () -> Unit,
     categorias: List<Categoria> = emptyList(),
     onSave: (Produto) -> Unit,
-    onToggleDestaque: (Produto) -> Unit = {}
+    onToggleDestaque: (Produto) -> Unit = {},
+    /** Envia a foto escolhida e devolve o endereço dela (null se falhar). */
+    onEnviarFoto: suspend (ArquivoSelecionado) -> String? = { null },
 ) {
 
     var nome by remember { mutableStateOf(produto?.nome ?: "") }
     var descricao by remember { mutableStateOf(produto?.descricao ?: "") }
     var preco by remember { mutableStateOf(produto?.preco?.let { (it * 100).roundToLong().emReais().removePrefix("R$ ") } ?: "") }
     var tipo by remember { mutableStateOf(produto?.tipo ?: "") }
-    var adicionais by remember { mutableStateOf(produto?.adicionais ?: "") }
+    var precoPromocional by remember { mutableStateOf(produto?.precoPromocional?.let { (it * 100).roundToLong() }) }
+    var imagemUrl by remember { mutableStateOf(produto?.imagemUrl) }
+    var grupos by remember { mutableStateOf(produto?.grupos ?: emptyList()) }
+    var disponivel by remember { mutableStateOf(produto?.ativo ?: true) }
+    var enviandoFoto by remember { mutableStateOf(false) }
+    val escopo = rememberCoroutineScope()
+    val escolherFoto = rememberSeletorDeImagem { arquivo ->
+        escopo.launch {
+            enviandoFoto = true
+            onEnviarFoto(arquivo)?.let { imagemUrl = it }
+            enviandoFoto = false
+        }
+    }
     var mostrarConfirmacaoDestaque by remember { mutableStateOf(false) }
     val isEditing = produto != null
     var categoriaSelecionada by remember {
@@ -71,15 +89,27 @@ fun ModalAdicionarProduto(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Card(
-                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                    modifier = Modifier.fillMaxWidth().height(110.dp).clickable(enabled = !enviandoFoto) { escolherFoto() },
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.5f)),
                     colors = CardDefaults.cardColors(containerColor = Color.Transparent)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.AddPhotoAlternate, "Adicionar Imagem", tint = Color.Gray)
-                            Text("Adicionar Imagem", color = Color.Gray)
+                            if (enviandoFoto) {
+                                CircularProgressIndicator(color = Color(0xFF790001))
+                            } else {
+                                Icon(Icons.Default.AddPhotoAlternate, "Foto do produto", tint = Color.Gray)
+                                Text(
+                                    if (imagemUrl == null) "Toque para enviar a foto (PNG, JPG ou WEBP, até 5 MB)"
+                                    else "Foto enviada ✓ — toque para trocar",
+                                    color = Color.Gray,
+                                )
+                                imagemUrl?.let {
+                                    Text(it, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                    TextButton(onClick = { imagemUrl = null }) { Text("Remover foto", color = Color(0xFF790001)) }
+                                }
+                            }
                         }
                     }
                 }
@@ -89,7 +119,21 @@ fun ModalAdicionarProduto(
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(value = descricao, onValueChange = { descricao = it }, label = { Text("Descrição") }, modifier = Modifier.fillMaxWidth(), maxLines = 3)
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(value = preco, onValueChange = { preco = it }, label = { Text("Preço (ex: 25.50)") }, modifier = Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = preco, onValueChange = { preco = it }, label = { Text("Preço (ex.: 25,50)") },
+                        isError = preco.isNotBlank() && preco.reaisParaCentavos() == null,
+                        modifier = Modifier.weight(1f),
+                    )
+                    CampoDinheiro(
+                        "Preço promocional (opcional)", precoPromocional, Modifier.weight(1f), permiteVazio = true,
+                    ) { precoPromocional = it }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(checked = disponivel, onCheckedChange = { disponivel = it })
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (disponivel) "Disponível no cardápio" else "Pausado (esgotado) — não aparece no cardápio")
+                }
                 Spacer(modifier = Modifier.height(16.dp))
 
 
@@ -151,8 +195,8 @@ fun ModalAdicionarProduto(
 
 
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(value = adicionais, onValueChange = { adicionais = it }, label = { Text("Adicionais (com valor, e separados por ponto vírgula. ex: Carne:2,00; Chedder:2,00 )") }, modifier = Modifier.fillMaxWidth())
-                Spacer(modifier = Modifier.weight(1f))
+                EditorGruposOpcoes(grupos) { grupos = it }
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -180,11 +224,13 @@ fun ModalAdicionarProduto(
                                 nome = nome,
                                 descricao = descricao,
                                 preco = (preco.reaisParaCentavos() ?: 0L) / 100.0,
+                                precoPromocional = precoPromocional?.let { it / 100.0 },
+                                imagemUrl = imagemUrl,
                                 tipo = categoriaSelecionada?.nome ?: tipo,
                                 categoriaId = categoriaSelecionada?.id ?: produto?.categoriaId,
-                                adicionais = adicionais,
+                                grupos = grupos.map { g -> g.copy(nome = g.nome.trim(), opcoes = g.opcoes.filter { it.nome.isNotBlank() }) },
                                 destacado = produto?.destacado ?: false,
-                                ativo = produto?.ativo ?: true
+                                ativo = disponivel
                             )
                             onSave(produtoSalvo)
                         },

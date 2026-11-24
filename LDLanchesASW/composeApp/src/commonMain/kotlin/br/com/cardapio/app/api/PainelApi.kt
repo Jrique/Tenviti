@@ -1,6 +1,10 @@
 package br.com.cardapio.app.api
 
+import br.com.cardapio.app.data.ArquivoSelecionado
 import br.com.cardapio.shared.AlterarStatusDto
+import br.com.cardapio.shared.ArquivoDto
+import br.com.cardapio.shared.DepoimentoDto
+import br.com.cardapio.shared.InformacoesLojaDto
 import br.com.cardapio.shared.AparenciaDto
 import br.com.cardapio.shared.AtualizarLojaDto
 import br.com.cardapio.shared.AtualizarUsuarioDto
@@ -21,6 +25,10 @@ import br.com.cardapio.shared.UsuarioDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
@@ -29,7 +37,7 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 
 /** Cliente da API do servidor. Erros HTTP viram [ErroApi] (ver HttpClientManager). */
-class PainelApi(private val http: HttpClient) {
+class PainelApi(private val http: HttpClient, private val upload: HttpClient) {
     private val base = apiBaseUrl()
 
     // ---------- Autenticação ----------
@@ -101,6 +109,45 @@ class PainelApi(private val http: HttpClient) {
     suspend fun removerProduto(id: Long) {
         http.delete("$base/api/painel/produtos/$id")
     }
+
+    /** Pausa (esgotado) ou volta a vender. */
+    suspend fun definirDisponivel(id: Long, disponivel: Boolean): ProdutoDto =
+        http.patch("$base/api/painel/produtos/$id/disponivel") { parameter("valor", disponivel) }.body()
+
+    // ---------- Painel: dados da loja ----------
+
+    suspend fun informacoesLoja(): InformacoesLojaDto = http.get("$base/api/painel/loja/informacoes").body()
+
+    suspend fun salvarInformacoesLoja(dto: InformacoesLojaDto): InformacoesLojaDto =
+        http.put("$base/api/painel/loja/informacoes") { setBody(dto) }.body()
+
+    // ---------- Painel: depoimentos ----------
+
+    suspend fun listarDepoimentos(): List<DepoimentoDto> = http.get("$base/api/painel/depoimentos").body()
+
+    suspend fun salvarDepoimento(dto: DepoimentoDto): DepoimentoDto =
+        if (dto.id == 0L) {
+            http.post("$base/api/painel/depoimentos") { setBody(dto) }.body()
+        } else {
+            http.put("$base/api/painel/depoimentos/${dto.id}") { setBody(dto) }.body()
+        }
+
+    suspend fun removerDepoimento(id: Long) {
+        http.delete("$base/api/painel/depoimentos/$id")
+    }
+
+    // ---------- Painel: imagens ----------
+
+    /** Envia uma imagem (PNG, JPG ou WEBP, até 5 MB) e devolve o endereço dela (ex.: /midia/3/abc.png). */
+    suspend fun enviarImagem(arquivo: ArquivoSelecionado): String =
+        upload.submitFormWithBinaryData(
+            url = "$base/api/painel/arquivos",
+            formData = formData {
+                append("arquivo", arquivo.bytes, Headers.build {
+                    append(HttpHeaders.ContentDisposition, "filename=\"${arquivo.nome.replace("\"", "")}\"")
+                })
+            },
+        ).body<ArquivoDto>().url
 
     // ---------- Painel: pedidos ----------
 

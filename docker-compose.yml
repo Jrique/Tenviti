@@ -36,11 +36,15 @@ services:
       SUPERADMIN_SENHA: ${SUPERADMIN_SENHA:-}
       CORS_ORIGENS: ${CORS_ORIGENS:-http://localhost:8080}
       CARDAPIO_WEB_DIR: /app/cardapio-web
+      MIDIA_DIR: /app/midia
     volumes:
       # Desenvolvimento: alterações no CardapioWeb aparecem sem rebuild da imagem
       - ./CardapioWeb:/app/cardapio-web:ro
+      # Imagens enviadas pelas lojas (fotos de produto, logo, banner)
+      - midia:/app/midia
     ports:
       - "8081:8081"
 
 volumes:
   banco-dados:
+  midia:

@@ -54,68 +54,7 @@ import kotlin.test.assertTrue
  * Testes de integração da API contra um PostgreSQL real.
  * Cada teste começa com o banco zerado (schema recriado + migrações).
  */
-class ApiTest {
-    private val banco = ConfigBanco(
-        url = System.getenv("DB_URL_TESTE"),
-        usuario = System.getenv("DB_USUARIO_TESTE"),
-        senha = System.getenv("DB_SENHA_TESTE"),
-        maxConexoes = 4,
-    )
-
-    private val config = Configuracao(
-        porta = 0,
-        banco = banco,
-        jwt = ConfigJwt(segredo = "segredo-de-teste-com-mais-de-32-caracteres!!"),
-        origensCors = listOf("http://localhost:8080"),
-        diretorioCardapioWeb = File("../../CardapioWeb"),
-        superAdminEmail = SUPER_EMAIL,
-        superAdminSenha = SUPER_SENHA,
-    )
-
-    @BeforeTest
-    fun zerarBanco() {
-        DriverManager.getConnection(banco.url, banco.usuario, banco.senha).use { c ->
-            c.createStatement().use { it.execute("drop schema public cascade; create schema public;") }
-        }
-    }
-
-    private fun cenario(bloco: suspend ApplicationTestBuilder.(HttpClient) -> Unit) = testApplication {
-        application { modulo(config) }
-        val cliente = createClient { install(ContentNegotiation) { json(JsonApi) } }
-        bloco(cliente)
-    }
-
-    // ---------- helpers ----------
-
-    private suspend fun HttpClient.login(email: String, senha: String): HttpResponse =
-        post("/api/auth/login") {
-            contentType(ContentType.Application.Json)
-            setBody(LoginRequisicao(email, senha))
-        }
-
-    private suspend fun HttpClient.token(email: String, senha: String): String {
-        val r = login(email, senha)
-        assertEquals(HttpStatusCode.OK, r.status, r.bodyAsText())
-        return r.body<SessaoDto>().token
-    }
-
-    private suspend fun HttpClient.criarLoja(tokenSuper: String, slug: String, donoEmail: String): LojaDto {
-        val r = post("/api/admin/lojas") {
-            bearerAuth(tokenSuper)
-            contentType(ContentType.Application.Json)
-            setBody(NovaLojaDto(slug = slug, nome = "Loja $slug", donoNome = "Dono $slug", donoEmail = donoEmail, donoSenha = SENHA_DONO))
-        }
-        assertEquals(HttpStatusCode.Created, r.status, r.bodyAsText())
-        return r.body()
-    }
-
-    private suspend fun HttpClient.criarProduto(token: String, nome: String, precoCentavos: Long = 2590): HttpResponse =
-        post("/api/painel/produtos") {
-            bearerAuth(token)
-            contentType(ContentType.Application.Json)
-            setBody(SalvarProdutoDto(nome = nome, precoCentavos = precoCentavos))
-        }
-
+class ApiTest : TesteDeApi() {
     // ---------- autenticação ----------
 
     @Test
@@ -388,12 +327,6 @@ class ApiTest {
         assertEquals(HttpStatusCode.NotFound, cliente.get("/loja-que-nao-existe/").status)
         assertEquals(HttpStatusCode.NotFound, cliente.get("/ld-lanches/..%2F..%2Fsettings.gradle.kts").status)
         assertFalse(cliente.get("/api/public/lojas/loja-que-nao-existe").status.isSuccess())
-    }
-
-    companion object {
-        const val SUPER_EMAIL = "super@cardapio.dev"
-        const val SUPER_SENHA = "senha-super-forte"
-        const val SENHA_DONO = "senha-do-dono"
     }
 }
 

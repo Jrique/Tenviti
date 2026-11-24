@@ -15,13 +15,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.cardapio.app.data.Produto
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
+
+/** Largura fixa da coluna de ações: cabe pausar, editar e apagar em qualquer tamanho de tela. */
+private val LARGURA_ACOES = 128.dp
 
 @Composable
 fun TabelaProdutos(
     produtos: List<Produto>,
     onDeleteRequest: (Produto) -> Unit,
-    onEditRequest: (Produto) -> Unit
+    onEditRequest: (Produto) -> Unit,
+    onPausarRequest: (Produto) -> Unit = {},
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -39,7 +45,8 @@ fun TabelaProdutos(
                 LinhaTabelaProduto(
                     produto = produto,
                     onDeleteClick = { onDeleteRequest(produto) },
-                    onEditClick = { onEditRequest(produto) }
+                    onEditClick = { onEditRequest(produto) },
+                    onPausarClick = { onPausarRequest(produto) },
                 )
                 HorizontalDivider(color = Color.Black.copy(alpha = 0.1f))
             }
@@ -102,7 +109,7 @@ fun CabecalhoTabela() {
                 .padding(horizontal = 6.dp)
         )
         Text(
-            text = "Adicionais",
+            text = "Opções",
             color = Color.DarkGray,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
@@ -115,7 +122,7 @@ fun CabecalhoTabela() {
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.width(LARGURA_ACOES)
         )
     }
 }
@@ -125,7 +132,8 @@ fun LinhaTabelaProduto(
     produto: Produto,
     onDeleteClick: () -> Unit,
     onEditClick: () -> Unit,
-    onToggleDestaque: (Produto) -> Unit = {}
+    onToggleDestaque: (Produto) -> Unit = {},
+    onPausarClick: () -> Unit = {},
 ) {
     var mostrarAdicionais by remember { mutableStateOf(false) }
 
@@ -162,7 +170,7 @@ fun LinhaTabelaProduto(
                 .padding(horizontal = 6.dp)
         )
         Text(
-            text = produto.nome,
+            text = if (produto.ativo) produto.nome else "${produto.nome} (pausado)",
             color = Color.Black,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
@@ -209,14 +217,21 @@ fun LinhaTabelaProduto(
             }
         }
         Row(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.width(LARGURA_ACOES),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onEditClick) {
+            IconButton(onClick = onPausarClick, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    if (produto.ativo) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    if (produto.ativo) "Pausar (esgotado)" else "Voltar a vender",
+                    tint = Color(0xFF790001),
+                )
+            }
+            IconButton(onClick = onEditClick, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.Edit, "Editar", tint = Color(0xFF790001))
             }
-            IconButton(onClick = onDeleteClick) {
+            IconButton(onClick = onDeleteClick, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.Delete, "Apagar", tint = Color(0xFF790001))
             }
         }
@@ -224,8 +239,8 @@ fun LinhaTabelaProduto(
 
     if (mostrarAdicionais) {
         ModalInfo(
-            titulo = "Adicionais Disponíveis",
-            conteudo = produto.adicionais,
+            titulo = "Opções do produto",
+            conteudo = produto.resumoOpcoes,
             onDismiss = { mostrarAdicionais = false }
         )
     }

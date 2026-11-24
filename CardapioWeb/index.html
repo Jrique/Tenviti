@@ -253,7 +253,19 @@
                 <!-- preenchido via JS -->
             </div>
         </section>
-                 
+
+        <!-- DEPOIMENTOS (preenchido via JS; some se a loja não tiver) -->
+        <section class="depoimentos" id="secao-depoimentos" hidden>
+            <h2 class="secao-titulo">O que dizem nossos clientes</h2>
+            <div class="depoimentos-lista" id="depoimentos-lista"></div>
+        </section>
+
+        <!-- SOBRE A LOJA: horários, endereço, contato (preenchido via JS) -->
+        <section class="sobre-loja" id="secao-sobre-loja" hidden>
+            <h2 class="secao-titulo">Sobre a loja</h2>
+            <div class="checkout-card sobre-loja-card" id="sobre-loja-conteudo"></div>
+        </section>
+
 
         <div class="espaco-bottom-nav"></div>
 
@@ -363,7 +375,7 @@
                                 <p class="produto-desc">${produto.descricao}</p>
                                 <div class="produto-bottom">
                                     <div class="produto-preco">
-                                        R$ ${produto.preco.toFixed(2).replace('.', ',')}
+                                        ${produto.precoOriginal ? `<span class="preco-antigo">R$ ${produto.precoOriginal.toFixed(2).replace('.', ',')}</span>` : ''}R$ ${produto.preco.toFixed(2).replace('.', ',')}
                                     </div>
                                     <button class="btn-add"
                                         onclick="event.preventDefault(); event.stopPropagation(); addToCartWithFeedback(${produto.id});">

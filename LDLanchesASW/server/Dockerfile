@@ -10,10 +10,10 @@ RUN ./gradlew --no-daemon --console=plain -PsomenteServidor=true :server:install
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN useradd --system --uid 10001 cardapio
+RUN useradd --system --uid 10001 cardapio && mkdir -p /app/midia && chown cardapio /app/midia
 COPY --from=build /src/server/build/install/server/ /app/
 COPY CardapioWeb/ /app/cardapio-web/
 USER cardapio
-ENV PORTA=8081 CARDAPIO_WEB_DIR=/app/cardapio-web
+ENV PORTA=8081 CARDAPIO_WEB_DIR=/app/cardapio-web MIDIA_DIR=/app/midia
 EXPOSE 8081
 ENTRYPOINT ["/app/bin/server"]

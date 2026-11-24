@@ -9,6 +9,7 @@ enum class Tela(val titulo: String) {
     CATEGORIAS("Categorias"),
     FATURAMENTO("Faturamento"),
     VENDAS("Vendas"),
+    DADOS_LOJA("Loja e horários"),
     APARENCIA("Aparência da loja"),
     CONFIGURACOES("Configurações");
 
@@ -17,6 +18,7 @@ enum class Tela(val titulo: String) {
         DASHBOARD, FATURAMENTO -> usuario.vePainelFinanceiro
         PRODUTOS, CATEGORIAS -> usuario.editaCardapio
         VENDAS -> usuario.papel in PAPEIS_QUE_ATENDEM
+        DADOS_LOJA -> usuario.gerenciaEquipe
         APARENCIA -> usuario.personalizaLoja
         CONFIGURACOES -> true
     }

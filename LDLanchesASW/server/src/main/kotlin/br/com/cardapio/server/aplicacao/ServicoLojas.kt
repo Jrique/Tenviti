@@ -3,6 +3,7 @@ package br.com.cardapio.server.aplicacao
 import br.com.cardapio.server.dominio.AcessoNegado
 import br.com.cardapio.server.dominio.Ator
 import br.com.cardapio.server.dominio.Conflito
+import br.com.cardapio.server.dominio.Funcionamento
 import br.com.cardapio.server.dominio.Loja
 import br.com.cardapio.server.dominio.NaoEncontrado
 import br.com.cardapio.server.dominio.RepositorioLojas
@@ -12,6 +13,7 @@ import br.com.cardapio.server.dominio.Usuario
 import br.com.cardapio.server.infra.seguranca.Senhas
 import br.com.cardapio.shared.AparenciaDto
 import br.com.cardapio.shared.AtualizarLojaDto
+import br.com.cardapio.shared.InformacoesLojaDto
 import br.com.cardapio.shared.LojaDto
 import br.com.cardapio.shared.NovaLojaDto
 import br.com.cardapio.shared.Papel
@@ -108,11 +110,32 @@ class ServicoLojas(
         }
     }
 
+    /** Contato, endereço, horários e regras de encomenda (dono e gerente). */
+    suspend fun informacoes(ator: Ator): InformacoesLojaDto {
+        ator.exigirPapel(Papel.DONO, Papel.GERENTE)
+        val lojaId = ator.lojaObrigatoria()
+        return tx.executar { lojas.buscar(lojaId)?.paraInformacoesDto() } ?: throw lojaNaoEncontrada()
+    }
+
+    suspend fun atualizarInformacoes(ator: Ator, req: InformacoesLojaDto): InformacoesLojaDto {
+        ator.exigirPapel(Papel.DONO, Papel.GERENTE)
+        val lojaId = ator.lojaObrigatoria()
+        // Trabalhar: o domínio valida telefone, endereço, horários e regras de encomenda
+        val contato = req.contato.paraDominio()
+        val funcionamento = req.funcionamento.paraDominio()
+        return tx.executar {
+            val loja = lojas.buscar(lojaId) ?: throw lojaNaoEncontrada()
+            loja.atualizarInformacoes(contato, funcionamento)
+            lojas.salvar(loja).paraInformacoesDto()
+        }
+    }
+
     // ---------- Público ----------
 
-    suspend fun vitrine(slug: String): VitrineLojaDto =
-        tx.executar { lojas.buscarPorSlug(slug)?.takeIf { it.visivelAoPublico() }?.paraVitrine() }
-            ?: throw lojaNaoEncontrada()
+    suspend fun vitrine(slug: String): VitrineLojaDto {
+        val loja = lojaPublica(slug)
+        return loja.paraVitrine(Funcionamento.agoraEm(loja.zona))
+    }
 
     /** Resolve o slug público para o id da loja (somente lojas ativas). */
     suspend fun lojaPublica(slug: String): Loja =

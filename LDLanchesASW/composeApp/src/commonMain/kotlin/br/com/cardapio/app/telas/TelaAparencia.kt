@@ -11,7 +11,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.cardapio.app.api.ApiProvider
+import androidx.compose.ui.Alignment
 import br.com.cardapio.app.api.apiBaseUrl
+import br.com.cardapio.app.api.rememberSeletorDeImagem
+import br.com.cardapio.app.data.ArquivoSelecionado
+import br.com.cardapio.shared.ItemPersonalizavel
 import br.com.cardapio.app.telas.componentes.EditorAparencia
 import br.com.cardapio.shared.AparenciaDto
 import br.com.cardapio.shared.LojaDto
@@ -50,6 +54,30 @@ fun TelaAparencia() {
         }
 
         Text("Seu cardápio online: ${apiBaseUrl()}/${atual.slug}/", color = Color.Gray)
+
+        // Envio de logo e banner (o endereço entra no campo correspondente)
+        var enviando by remember { mutableStateOf(false) }
+        fun enviar(arquivo: ArquivoSelecionado, aplicar: (AparenciaDto, String) -> AparenciaDto) {
+            escopo.launch {
+                try {
+                    enviando = true
+                    val url = api.enviarImagem(arquivo)
+                    aparencia = aparencia?.let { aplicar(it, url) }
+                    mensagem = "Imagem enviada. Clique em \"Salvar aparência\" para publicar."
+                } catch (e: Exception) {
+                    mensagem = e.message
+                } finally {
+                    enviando = false
+                }
+            }
+        }
+        val escolherLogo = rememberSeletorDeImagem { enviar(it) { ap, url -> ap.copy(logoUrl = url) } }
+        val escolherBanner = rememberSeletorDeImagem { enviar(it) { ap, url -> ap.copy(bannerUrl = url) } }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = escolherLogo, enabled = !enviando && ItemPersonalizavel.LOGO in atual.personalizacaoLiberada) { Text("Enviar logo") }
+            OutlinedButton(onClick = escolherBanner, enabled = !enviando && ItemPersonalizavel.BANNERS_E_TEXTOS in atual.personalizacaoLiberada) { Text("Enviar banner") }
+            if (enviando) CircularProgressIndicator(color = Color(0xFF790001), modifier = Modifier.size(24.dp))
+        }
 
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE9E6))) {
             Column(Modifier.padding(16.dp)) {

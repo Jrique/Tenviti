@@ -4,14 +4,19 @@ import br.com.cardapio.server.api.Servicos
 import br.com.cardapio.server.api.configurarPlugins
 import br.com.cardapio.server.api.rotasApi
 import br.com.cardapio.server.api.rotasCardapioWeb
+import br.com.cardapio.server.api.rotasMidia
+import br.com.cardapio.server.aplicacao.ServicoArquivos
 import br.com.cardapio.server.aplicacao.ServicoAutenticacao
+import br.com.cardapio.server.aplicacao.ServicoDepoimentos
 import br.com.cardapio.server.aplicacao.ServicoCatalogo
 import br.com.cardapio.server.aplicacao.ServicoLojas
 import br.com.cardapio.server.aplicacao.ServicoPedidos
 import br.com.cardapio.server.aplicacao.ServicoUsuarios
 import br.com.cardapio.server.infra.banco.Banco
 import br.com.cardapio.server.infra.banco.ConfigBanco
+import br.com.cardapio.server.infra.arquivos.ArmazenamentoEmDisco
 import br.com.cardapio.server.infra.banco.RepositorioCatalogoExposed
+import br.com.cardapio.server.infra.banco.RepositorioDepoimentosExposed
 import br.com.cardapio.server.infra.banco.RepositorioLojasExposed
 import br.com.cardapio.server.infra.banco.RepositorioPedidosExposed
 import br.com.cardapio.server.infra.banco.RepositorioUsuariosExposed
@@ -34,6 +39,7 @@ data class Configuracao(
     val jwt: ConfigJwt,
     val origensCors: List<String>,
     val diretorioCardapioWeb: File,
+    val diretorioMidia: File,
     val superAdminEmail: String?,
     val superAdminSenha: String?,
 ) {
@@ -51,6 +57,7 @@ data class Configuracao(
                 jwt = ConfigJwt(segredo = obrigatoria("JWT_SEGREDO")),
                 origensCors = (env["CORS_ORIGENS"] ?: "http://localhost:8080").split(',').map { it.trim() }.filter { it.isNotEmpty() },
                 diretorioCardapioWeb = File(env["CARDAPIO_WEB_DIR"] ?: "../../CardapioWeb"),
+                diretorioMidia = File(env["MIDIA_DIR"] ?: "midia"),
                 superAdminEmail = env["SUPERADMIN_EMAIL"],
                 superAdminSenha = env["SUPERADMIN_SENHA"],
             )
@@ -74,6 +81,8 @@ fun Application.modulo(config: Configuracao) {
     val repoUsuarios = RepositorioUsuariosExposed()
     val repoCatalogo = RepositorioCatalogoExposed()
     val repoPedidos = RepositorioPedidosExposed()
+    val repoDepoimentos = RepositorioDepoimentosExposed()
+    val armazenamento = ArmazenamentoEmDisco(config.diretorioMidia)
     val senhas = Senhas()
     val tokens = Tokens(config.jwt)
 
@@ -84,12 +93,15 @@ fun Application.modulo(config: Configuracao) {
         usuarios = ServicoUsuarios(tx, repoUsuarios, senhas),
         catalogo = ServicoCatalogo(tx, repoCatalogo),
         pedidos = ServicoPedidos(tx, repoPedidos),
+        depoimentos = ServicoDepoimentos(tx, repoDepoimentos),
+        arquivos = ServicoArquivos(armazenamento),
     )
 
     runBlocking { servicos.autenticacao.garantirSuperAdmin(config.superAdminEmail, config.superAdminSenha) }
 
     configurarPlugins(tokens, config.origensCors)
     routing {
+        rotasMidia(config.diretorioMidia)
         rotasApi(servicos)
         rotasCardapioWeb(config.diretorioCardapioWeb, servicos.lojas)
     }

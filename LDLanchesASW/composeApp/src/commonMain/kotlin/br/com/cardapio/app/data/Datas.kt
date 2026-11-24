@@ -21,3 +21,10 @@ fun formatarHorarioPedido(iso: String, fuso: TimeZone = TimeZone.currentSystemDe
     }
     return "$dia, $hora"
 }
+
+/** Data/hora da encomenda no fuso local: "20/11 10:00". */
+fun formatarAgendamento(iso: String, fuso: TimeZone = TimeZone.currentSystemDefault()): String {
+    val local = runCatching { Instant.parse(iso) }.getOrNull()?.toLocalDateTime(fuso) ?: return iso
+    fun dois(n: Int) = n.toString().padStart(2, '0')
+    return "${dois(local.dayOfMonth)}/${dois(local.monthNumber)} ${dois(local.hour)}:${dois(local.minute)}"
+}

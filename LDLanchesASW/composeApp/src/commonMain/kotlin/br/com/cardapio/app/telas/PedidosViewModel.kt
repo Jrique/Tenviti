@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import br.com.cardapio.app.api.ApiProvider
 import br.com.cardapio.app.api.PainelApi
 import br.com.cardapio.app.data.Pedido
+import br.com.cardapio.app.data.formatarAgendamento
 import br.com.cardapio.app.data.formatarHorarioPedido
 import br.com.cardapio.shared.PedidoDto
 import br.com.cardapio.shared.StatusPedido
@@ -74,7 +75,7 @@ class PedidosViewModel : ViewModel() {
         codigo = codigo,
         descricao = descricao,
         valor = totalCentavos.emReais(),
-        horario = formatarHorarioPedido(criadoEm),
+        horario = formatarHorarioPedido(criadoEm) + (agendadoPara?.let { " · encomenda p/ ${formatarAgendamento(it)}" } ?: ""),
         status = status.rotulo,
         corStatus = corDoStatus(status),
     )

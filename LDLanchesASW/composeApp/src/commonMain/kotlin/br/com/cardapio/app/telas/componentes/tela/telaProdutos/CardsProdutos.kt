@@ -20,13 +20,15 @@ import androidx.compose.material.icons.filled.Star
 fun ListaProdutosCards(
     produtos: List<Produto>,
     onDeleteRequest: (Produto) -> Unit,
-    onEditRequest: (Produto) -> Unit // <-- Parâmetro adicionado
+    onEditRequest: (Produto) -> Unit,
+    onPausarRequest: (Produto) -> Unit = {},
 ) {
     produtos.forEach { produto ->
         CardProduto(
             produto = produto,
             onDeleteClick = { onDeleteRequest(produto) },
-            onEditClick = { onEditRequest(produto) } // <-- Ação passada
+            onEditClick = { onEditRequest(produto) },
+            onPausarClick = { onPausarRequest(produto) },
         )
         Spacer(modifier = Modifier.height(12.dp))
     }
@@ -36,7 +38,8 @@ fun ListaProdutosCards(
 fun CardProduto(
     produto: Produto,
     onDeleteClick: () -> Unit,
-    onEditClick: () -> Unit
+    onEditClick: () -> Unit,
+    onPausarClick: () -> Unit = {},
 )  {
     var mostrarDescricao by remember { mutableStateOf(false) }
     var mostrarAdicionais by remember { mutableStateOf(false) }
@@ -65,6 +68,10 @@ fun CardProduto(
                             )
                         }
                         Text(produto.nome, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        if (!produto.ativo) Text("Pausado — não aparece no cardápio", fontSize = 12.sp, color = Color(0xFF790001))
+                        TextButton(onClick = onPausarClick, contentPadding = PaddingValues(0.dp)) {
+                            Text(if (produto.ativo) "Pausar (esgotado)" else "Voltar a vender", fontSize = 13.sp, color = Color(0xFF790001))
+                        }
                     }
                     Text(produto.tipo, fontSize = 14.sp, color = Color.Gray)
                 }
@@ -95,7 +102,7 @@ fun CardProduto(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF790001),
                             contentColor = Color.White)) {
-                        Text("Adicionais", fontSize = 12.sp)
+                        Text("Opções", fontSize = 12.sp)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -120,8 +127,8 @@ fun CardProduto(
 
     if (mostrarAdicionais) {
         ModalInfo(
-            titulo = "Adicionais Disponíveis",
-            conteudo = produto.adicionais,
+            titulo = "Opções do produto",
+            conteudo = produto.resumoOpcoes,
             onDismiss = { mostrarAdicionais = false }
         )
     }

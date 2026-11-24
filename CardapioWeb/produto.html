@@ -162,117 +162,147 @@
 
     <script src="script.js"></script>
     <script>
+        const reais = v => 'R$ ' + v.toFixed(2).replace('.', ',');
+
+        /** Texto da regra do grupo: "Obrigatório · escolha 4", "Opcional · até 3"... */
+        function regraDoGrupo(g) {
+            if (g.minimo > 0 && g.minimo === g.maximo) return `Obrigatório · escolha ${g.minimo}`;
+            if (g.minimo > 0) return `Obrigatório · de ${g.minimo} a ${g.maximo}`;
+            return g.maximo === 1 ? 'Opcional · escolha 1' : `Opcional · até ${g.maximo}`;
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             atualizarBadgeCarrinho();
-            atualizarStatusLoja();
             configurarBotaoHeaderEntrega();
-            configurarBotaoWhatsFlutuante();  
-    
+            configurarBotaoWhatsFlutuante();
+
             const params = new URLSearchParams(window.location.search);
             const id = parseInt(params.get('id'), 10);
-    
-            // garante que mockProdutos já foi preenchido
+
             await carregarProdutosDoBackend();
-    
+
             const detalhesContainer = document.getElementById('detalhes-produto-container');
             const produto = mockProdutos.find(p => p.id === id);
-    
+
             if (!produto) {
                 detalhesContainer.innerHTML = '<p class="carrinho-vazio">Produto não encontrado.</p>';
                 return;
             }
-    
-            // monta array de adicionais a partir do campo extras vindo do backend
-            // extras já vêm como array [{nome, preco}]
-            const extrasArray = produto.extras || [];
 
-            // monta o HTML da área de adicionais
-            const extrasHtml = extrasArray.length > 0
-                ? `
-                    <div class="produto-extras">
-                        <h3 class="produto-extras-titulo">Adicionais</h3>
-                        <div class="produto-extras-lista">
-                            ${extrasArray.map(extra => `
-                                <div class="produto-extra-item" data-extra="${extra.nome}">
-                                    <span class="produto-extra-nome">
-                                        ${extra.nome}
-                                        ${extra.preco > 0 ? ` (R$ ${extra.preco.toFixed(2).replace('.', ',')})` : ''}
-                                    </span>
-                                    <div class="produto-extra-controle">
-                                        <button class="extra-btn extra-menor" data-extra="${extra.nome}">-</button>
-                                        <span class="extra-qtd" data-extra="${extra.nome}">0</span>
-                                        <button class="extra-btn extra-maior" data-extra="${extra.nome}">+</button>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
+            const grupos = produto.grupos || [];
+            // quantidades escolhidas: qtd[g][o]
+            const qtd = grupos.map(g => g.opcoes.map(() => 0));
+
+            const gruposHtml = grupos.map((g, gi) => `
+                <div class="produto-extras grupo-opcoes" data-grupo="${gi}">
+                    <div class="grupo-cabecalho">
+                        <h3 class="produto-extras-titulo">${g.nome}</h3>
+                        <span class="grupo-regra ${g.minimo > 0 ? 'grupo-obrigatorio' : ''}">${regraDoGrupo(g)}</span>
+                        <span class="grupo-contador" id="contador-${gi}">0/${g.maximo}</span>
                     </div>
-                `
-                : '';
-    
-            // injeta TODO o HTML primeiro
+                    <div class="produto-extras-lista">
+                        ${g.opcoes.map((o, oi) => `
+                            <div class="produto-extra-item">
+                                <span class="produto-extra-nome">
+                                    ${o.nome}${o.preco > 0 ? ` <small>(+ ${reais(o.preco)})</small>` : ''}
+                                </span>
+                                <div class="produto-extra-controle">
+                                    <button class="extra-btn extra-menor" data-g="${gi}" data-o="${oi}" aria-label="Remover ${o.nome}">-</button>
+                                    <span class="extra-qtd" id="qtd-${gi}-${oi}">0</span>
+                                    <button class="extra-btn extra-maior" data-g="${gi}" data-o="${oi}" aria-label="Adicionar ${o.nome}">+</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+
             detalhesContainer.innerHTML = `
                 <div class="produto-detalhe-img">
                     <img src="${produto.imagemUrl}" alt="${produto.nome}">
                 </div>
-    
+
                 <div class="produto-detalhe-nome">${produto.nome}</div>
                 <div class="produto-detalhe-preco">
-                    R$ ${produto.preco.toFixed(2).replace('.', ',')}
+                    ${produto.precoOriginal ? `<span class="preco-antigo">${reais(produto.precoOriginal)}</span>` : ''}
+                    ${reais(produto.preco)}
                 </div>
-    
+
                 <div class="produto-detalhe-desc">${produto.descricao}</div>
-    
-                ${extrasHtml}
-    
+
+                ${gruposHtml}
+
+                <div class="grupo-aviso" id="grupo-aviso"></div>
                 <button class="produto-add-btn" id="add-btn">
-                    <span>Adicionar à sacola</span>
+                    <span id="add-btn-texto">Adicionar à sacola</span>
                 </button>
             `;
-    
-            // quantidades dos adicionais
-                const extrasSelecionados = {};
 
-                detalhesContainer.querySelectorAll('.extra-btn').forEach(btn => {
-                    const extraNome = btn.getAttribute('data-extra');
+            const totalDoGrupo = gi => qtd[gi].reduce((a, b) => a + b, 0);
 
-                    btn.addEventListener('click', () => {
-                        const spanQtd = detalhesContainer.querySelector(
-                            `.extra-qtd[data-extra="${extraNome}"]`
-                        );
-
-                        let atual = extrasSelecionados[extraNome] || 0;
-
-                        if (btn.classList.contains('extra-maior')) {
-                            atual += 1;
-                        } else if (btn.classList.contains('extra-menor') && atual > 0) {
-                            atual -= 1;
-                        }
-
-                        extrasSelecionados[extraNome] = atual;
-                        spanQtd.textContent = atual;
+            function atualizarTela() {
+                let precoUnidade = produto.preco;
+                let pendencia = null;
+                grupos.forEach((g, gi) => {
+                    const total = totalDoGrupo(gi);
+                    document.getElementById(`contador-${gi}`).textContent = `${total}/${g.maximo}`;
+                    g.opcoes.forEach((o, oi) => {
+                        document.getElementById(`qtd-${gi}-${oi}`).textContent = qtd[gi][oi];
+                        precoUnidade += o.preco * qtd[gi][oi];
                     });
+                    if (!pendencia && total < g.minimo) {
+                        const falta = g.minimo - total;
+                        pendencia = `Escolha mais ${falta} em "${g.nome}".`;
+                    }
                 });
-    
-            // botão "Adicionar à sacola"
-            const addBtn = document.getElementById('add-btn');
-            if (addBtn) {
-                addBtn.addEventListener('click', () => {
-                    addToCartWithFeedback(produto.id, extrasSelecionados);
-                    console.log('Extras selecionados:', extrasSelecionados);
-            
-                });
+                const btn = document.getElementById('add-btn');
+                btn.disabled = !!pendencia;
+                document.getElementById('add-btn-texto').textContent = `Adicionar à sacola · ${reais(precoUnidade)}`;
+                document.getElementById('grupo-aviso').textContent = pendencia || '';
             }
-    
+
+            detalhesContainer.querySelectorAll('.extra-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const gi = parseInt(btn.dataset.g, 10);
+                    const oi = parseInt(btn.dataset.o, 10);
+                    const g = grupos[gi];
+                    const maxPorOpcao = g.permiteRepetir ? g.maximo : 1;
+
+                    if (btn.classList.contains('extra-maior')) {
+                        if (g.maximo === 1) {
+                            // escolha única: troca a seleção
+                            qtd[gi] = qtd[gi].map((_, i) => (i === oi ? 1 : 0));
+                        } else if (totalDoGrupo(gi) < g.maximo && qtd[gi][oi] < maxPorOpcao) {
+                            qtd[gi][oi] += 1;
+                        }
+                    } else if (qtd[gi][oi] > 0) {
+                        qtd[gi][oi] -= 1;
+                    }
+                    atualizarTela();
+                });
+            });
+
+            document.getElementById('add-btn').addEventListener('click', () => {
+                const selecoes = [];
+                grupos.forEach((g, gi) => g.opcoes.forEach((o, oi) => {
+                    if (qtd[gi][oi] > 0) selecoes.push({ grupo: g.nome, nome: o.nome, preco: o.preco, qtd: qtd[gi][oi] });
+                }));
+                addToCart(produto, selecoes);
+                atualizarBadgeCarrinho();
+                showActionFeedback('Adicionado à sacola', produto.nome + ' foi adicionado na sua sacola.');
+            });
+
+            atualizarTela();
+
             // modal de perfil
             const salvarBtn = document.getElementById('perfil-salvar-btn');
             const cancelBtn = document.getElementById('modal-cancelar-btn');
             const closeBtn  = document.getElementById('modal-close-btn');
-    
+
             if (salvarBtn) salvarBtn.addEventListener('click', salvarPerfilDoModal);
             if (cancelBtn) cancelBtn.addEventListener('click', fecharModalPerfilGlobal);
             if (closeBtn)  closeBtn.addEventListener('click', fecharModalPerfilGlobal);
-    
+
             const perfil = getPerfil();
             if (perfilIncompleto(perfil)) {
                 abrirModalPerfilGlobal();

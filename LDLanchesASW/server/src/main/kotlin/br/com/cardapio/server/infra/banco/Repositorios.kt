@@ -2,10 +2,19 @@ package br.com.cardapio.server.infra.banco
 
 import br.com.cardapio.server.dominio.Aparencia
 import br.com.cardapio.server.dominio.Categoria
+import br.com.cardapio.server.dominio.ConfigEncomenda
+import br.com.cardapio.server.dominio.ContatoLoja
+import br.com.cardapio.server.dominio.Depoimento
+import br.com.cardapio.server.dominio.Endereco
+import br.com.cardapio.server.dominio.Funcionamento
+import br.com.cardapio.server.dominio.GrupoOpcoes
+import br.com.cardapio.server.dominio.IntervaloHorario
 import br.com.cardapio.server.dominio.Loja
+import br.com.cardapio.server.dominio.Opcao
 import br.com.cardapio.server.dominio.Pedido
 import br.com.cardapio.server.dominio.Produto
 import br.com.cardapio.server.dominio.RepositorioCatalogo
+import br.com.cardapio.server.dominio.RepositorioDepoimentos
 import br.com.cardapio.server.dominio.RepositorioLojas
 import br.com.cardapio.server.dominio.RepositorioPedidos
 import br.com.cardapio.server.dominio.RepositorioUsuarios
@@ -19,12 +28,19 @@ import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.count
 import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.insertAndGetId
 import org.jetbrains.exposed.sql.lowerCase
+import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.statements.UpdateBuilder
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.update
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
 
 // Implementações com Exposed (DSL). Devem ser chamadas dentro de Transacoes.executar { }.
@@ -45,53 +61,119 @@ class RepositorioLojasExposed : RepositorioLojas {
         }.any()
 
     override fun salvar(loja: Loja): Loja {
-        val preencher: LojaTabela.(org.jetbrains.exposed.sql.statements.UpdateBuilder<*>) -> Unit = {
-            it[slug] = loja.slug
-            it[nome] = loja.nome
-            it[ativa] = loja.ativa
-            it[fusoHorario] = loja.fusoHorario
-            it[corPrimaria] = loja.aparencia.corPrimaria
-            it[corSecundaria] = loja.aparencia.corSecundaria
-            it[corFundo] = loja.aparencia.corFundo
-            it[logoUrl] = loja.aparencia.logoUrl
-            it[bannerUrl] = loja.aparencia.bannerUrl
-            it[modeloLayout] = loja.aparencia.modeloLayout.name
-            it[mensagemBoasVindas] = loja.aparencia.mensagemBoasVindas
-            it[aviso] = loja.aparencia.aviso
-            it[cssExtra] = loja.aparencia.cssExtra
-            it[modulos] = loja.modulos.map(Modulo::name).sorted()
-            it[personalizacaoLiberada] = loja.personalizacaoLiberada.map(ItemPersonalizavel::name).sorted()
-        }
-        return if (loja.id == 0L) {
-            val id = LojaTabela.insertAndGetId { preencher(it) }.value
-            buscar(id)!!
+        val id = if (loja.id == 0L) {
+            LojaTabela.insertAndGetId { preencher(it, loja) }.value
         } else {
-            LojaTabela.update({ LojaTabela.id eq loja.id }) { preencher(it) }
-            loja
+            LojaTabela.update({ LojaTabela.id eq loja.id }) { preencher(it, loja) }
+            loja.id
         }
+        // horários: substitui todos
+        HorarioFuncionamentoTabela.deleteWhere { HorarioFuncionamentoTabela.lojaId eq id }
+        loja.funcionamento.horarios.forEach { h ->
+            HorarioFuncionamentoTabela.insert {
+                it[lojaId] = id
+                it[diaSemana] = h.dia.value.toShort()
+                it[abre] = h.abre
+                it[fecha] = h.fecha
+            }
+        }
+        return buscar(id)!!
     }
 
-    private fun ResultRow.paraLoja() = Loja(
-        id = this[LojaTabela.id].value,
-        slug = this[LojaTabela.slug],
-        nome = this[LojaTabela.nome],
-        ativa = this[LojaTabela.ativa],
-        fusoHorario = this[LojaTabela.fusoHorario],
-        aparencia = Aparencia(
-            corPrimaria = this[LojaTabela.corPrimaria],
-            corSecundaria = this[LojaTabela.corSecundaria],
-            corFundo = this[LojaTabela.corFundo],
-            logoUrl = this[LojaTabela.logoUrl],
-            bannerUrl = this[LojaTabela.bannerUrl],
-            modeloLayout = enumOuPadrao(this[LojaTabela.modeloLayout], ModeloLayout.LISTA),
-            mensagemBoasVindas = this[LojaTabela.mensagemBoasVindas],
-            aviso = this[LojaTabela.aviso],
-            cssExtra = this[LojaTabela.cssExtra],
-        ),
-        modulos = this[LojaTabela.modulos].mapNotNull { nome -> Modulo.entries.find { it.name == nome } }.toSet(),
-        personalizacaoLiberada = this[LojaTabela.personalizacaoLiberada]
-            .mapNotNull { nome -> ItemPersonalizavel.entries.find { it.name == nome } }.toSet(),
-    )
+    private fun preencher(it: UpdateBuilder<*>, loja: Loja) {
+        val ap = loja.aparencia
+        val c = loja.contato
+        val e = c.endereco
+        val f = loja.funcionamento
+        it[LojaTabela.slug] = loja.slug
+        it[LojaTabela.nome] = loja.nome
+        it[LojaTabela.ativa] = loja.ativa
+        it[LojaTabela.fusoHorario] = loja.fusoHorario
+        it[LojaTabela.corPrimaria] = ap.corPrimaria
+        it[LojaTabela.corSecundaria] = ap.corSecundaria
+        it[LojaTabela.corFundo] = ap.corFundo
+        it[LojaTabela.logoUrl] = ap.logoUrl
+        it[LojaTabela.bannerUrl] = ap.bannerUrl
+        it[LojaTabela.modeloLayout] = ap.modeloLayout.name
+        it[LojaTabela.mensagemBoasVindas] = ap.mensagemBoasVindas
+        it[LojaTabela.aviso] = ap.aviso
+        it[LojaTabela.cssExtra] = ap.cssExtra
+        it[LojaTabela.modulos] = loja.modulos.map(Modulo::name).sorted()
+        it[LojaTabela.personalizacaoLiberada] = loja.personalizacaoLiberada.map(ItemPersonalizavel::name).sorted()
+        it[LojaTabela.telefone] = c.telefone
+        it[LojaTabela.instagram] = c.instagram
+        it[LojaTabela.enderecoLogradouro] = e?.logradouro
+        it[LojaTabela.enderecoNumero] = e?.numero
+        it[LojaTabela.enderecoComplemento] = e?.complemento
+        it[LojaTabela.enderecoBairro] = e?.bairro
+        it[LojaTabela.enderecoCidade] = e?.cidade
+        it[LojaTabela.enderecoUf] = e?.uf
+        it[LojaTabela.enderecoCep] = e?.cep
+        it[LojaTabela.pausada] = f.pausada
+        it[LojaTabela.mensagemPausa] = f.mensagemPausa
+        it[LojaTabela.aceitaAgendamento] = f.encomenda.aceitaAgendamento
+        it[LojaTabela.exigeAgendamento] = f.encomenda.exigeAgendamento
+        it[LojaTabela.antecedenciaMinimaHoras] = f.encomenda.antecedenciaMinimaHoras
+        it[LojaTabela.diasMaximosAgendamento] = f.encomenda.diasMaximos
+        it[LojaTabela.limitePedidosDia] = f.encomenda.limitePedidosPorDia
+        it[LojaTabela.intervaloAgendamentoMinutos] = f.encomenda.intervaloMinutos
+    }
+
+    private fun ResultRow.paraLoja(): Loja {
+        val id = this[LojaTabela.id].value
+        val horarios = HorarioFuncionamentoTabela.selectAll()
+            .where { HorarioFuncionamentoTabela.lojaId eq id }
+            .orderBy(HorarioFuncionamentoTabela.diaSemana to SortOrder.ASC, HorarioFuncionamentoTabela.abre to SortOrder.ASC)
+            .map { IntervaloHorario(DayOfWeek.of(it[HorarioFuncionamentoTabela.diaSemana].toInt()), it[HorarioFuncionamentoTabela.abre], it[HorarioFuncionamentoTabela.fecha]) }
+        val endereco = Endereco(
+            logradouro = this[LojaTabela.enderecoLogradouro].orEmpty(),
+            numero = this[LojaTabela.enderecoNumero].orEmpty(),
+            complemento = this[LojaTabela.enderecoComplemento],
+            bairro = this[LojaTabela.enderecoBairro].orEmpty(),
+            cidade = this[LojaTabela.enderecoCidade].orEmpty(),
+            uf = this[LojaTabela.enderecoUf].orEmpty(),
+            cep = this[LojaTabela.enderecoCep].orEmpty(),
+        )
+        return Loja(
+            id = id,
+            slug = this[LojaTabela.slug],
+            nome = this[LojaTabela.nome],
+            ativa = this[LojaTabela.ativa],
+            fusoHorario = this[LojaTabela.fusoHorario],
+            aparencia = Aparencia(
+                corPrimaria = this[LojaTabela.corPrimaria],
+                corSecundaria = this[LojaTabela.corSecundaria],
+                corFundo = this[LojaTabela.corFundo],
+                logoUrl = this[LojaTabela.logoUrl],
+                bannerUrl = this[LojaTabela.bannerUrl],
+                modeloLayout = enumOuPadrao(this[LojaTabela.modeloLayout], ModeloLayout.LISTA),
+                mensagemBoasVindas = this[LojaTabela.mensagemBoasVindas],
+                aviso = this[LojaTabela.aviso],
+                cssExtra = this[LojaTabela.cssExtra],
+            ),
+            modulos = this[LojaTabela.modulos].mapNotNull { nome -> Modulo.entries.find { it.name == nome } }.toSet(),
+            personalizacaoLiberada = this[LojaTabela.personalizacaoLiberada]
+                .mapNotNull { nome -> ItemPersonalizavel.entries.find { it.name == nome } }.toSet(),
+            contato = ContatoLoja(
+                telefone = this[LojaTabela.telefone],
+                instagram = this[LojaTabela.instagram],
+                endereco = endereco.takeUnless { it.vazio },
+            ),
+            funcionamento = Funcionamento(
+                pausada = this[LojaTabela.pausada],
+                mensagemPausa = this[LojaTabela.mensagemPausa],
+                horarios = horarios,
+                encomenda = ConfigEncomenda(
+                    aceitaAgendamento = this[LojaTabela.aceitaAgendamento],
+                    exigeAgendamento = this[LojaTabela.exigeAgendamento],
+                    antecedenciaMinimaHoras = this[LojaTabela.antecedenciaMinimaHoras],
+                    diasMaximos = this[LojaTabela.diasMaximosAgendamento],
+                    limitePedidosPorDia = this[LojaTabela.limitePedidosDia],
+                    intervaloMinutos = this[LojaTabela.intervaloAgendamentoMinutos],
+                ),
+            ),
+        )
+    }
 }
 
 class RepositorioUsuariosExposed : RepositorioUsuarios {
@@ -193,42 +275,99 @@ class RepositorioCatalogoExposed : RepositorioCatalogo {
         CategoriaTabela.deleteWhere { (CategoriaTabela.id eq id) and (CategoriaTabela.lojaId eq lojaId) }
     }
 
-    override fun listarProdutos(lojaId: Long, somenteAtivos: Boolean): List<Produto> =
-        ProdutoTabela.selectAll().where {
+    override fun listarProdutos(lojaId: Long, somenteAtivos: Boolean): List<Produto> {
+        val grupos = gruposDaLoja(lojaId)
+        return ProdutoTabela.selectAll().where {
             val base = ProdutoTabela.lojaId eq lojaId
             if (somenteAtivos) base and (ProdutoTabela.ativo eq true) else base
-        }.orderBy(ProdutoTabela.nome).map { it.paraProduto() }
+        }.orderBy(ProdutoTabela.nome).map { it.paraProduto(grupos[it[ProdutoTabela.id].value].orEmpty()) }
+    }
 
-    override fun buscarProduto(lojaId: Long, id: Long) =
-        ProdutoTabela.selectAll().where { (ProdutoTabela.id eq id) and (ProdutoTabela.lojaId eq lojaId) }
-            .singleOrNull()?.paraProduto()
+    override fun buscarProduto(lojaId: Long, id: Long): Produto? {
+        val linha = ProdutoTabela.selectAll().where { (ProdutoTabela.id eq id) and (ProdutoTabela.lojaId eq lojaId) }
+            .singleOrNull() ?: return null
+        return linha.paraProduto(gruposDaLoja(lojaId, produtoId = id)[id].orEmpty())
+    }
 
     override fun salvarProduto(produto: Produto): Produto {
-        val preencher: ProdutoTabela.(org.jetbrains.exposed.sql.statements.UpdateBuilder<*>) -> Unit = {
-            it[categoriaId] = produto.categoriaId
-            it[nome] = produto.nome
-            it[descricao] = produto.descricao
-            it[precoCentavos] = produto.precoCentavos
-            it[adicionais] = produto.adicionais
-            it[destaque] = produto.destaque
-            it[ativo] = produto.ativo
-        }
-        return if (produto.id == 0L) {
-            val id = ProdutoTabela.insertAndGetId {
+        val id = if (produto.id == 0L) {
+            ProdutoTabela.insertAndGetId {
                 it[lojaId] = produto.lojaId
-                preencher(it)
+                preencher(it, produto)
             }.value
-            buscarProduto(produto.lojaId, id)!!
         } else {
             ProdutoTabela.update({ (ProdutoTabela.id eq produto.id) and (ProdutoTabela.lojaId eq produto.lojaId) }) {
-                preencher(it)
+                preencher(it, produto)
             }
-            produto
+            produto.id
         }
+        // grupos de opções: substitui todos (opções caem junto pelo ON DELETE CASCADE)
+        GrupoOpcaoTabela.deleteWhere { (GrupoOpcaoTabela.produtoId eq id) and (GrupoOpcaoTabela.lojaId eq produto.lojaId) }
+        produto.grupos.forEachIndexed { i, g ->
+            val grupoId = GrupoOpcaoTabela.insertAndGetId {
+                it[lojaId] = produto.lojaId
+                it[produtoId] = id
+                it[nome] = g.nome
+                it[minimo] = g.minimo
+                it[maximo] = g.maximo
+                it[permiteRepetir] = g.permiteRepetir
+                it[ordem] = i
+            }.value
+            g.opcoes.forEachIndexed { j, o ->
+                OpcaoTabela.insert {
+                    it[lojaId] = produto.lojaId
+                    it[OpcaoTabela.grupoId] = grupoId
+                    it[nome] = o.nome
+                    it[precoCentavos] = o.precoCentavos
+                    it[ativo] = o.ativo
+                    it[ordem] = j
+                }
+            }
+        }
+        return buscarProduto(produto.lojaId, id)!!
     }
 
     override fun removerProduto(lojaId: Long, id: Long) {
         ProdutoTabela.deleteWhere { (ProdutoTabela.id eq id) and (ProdutoTabela.lojaId eq lojaId) }
+    }
+
+    private fun preencher(it: UpdateBuilder<*>, produto: Produto) {
+        it[ProdutoTabela.categoriaId] = produto.categoriaId
+        it[ProdutoTabela.nome] = produto.nome
+        it[ProdutoTabela.descricao] = produto.descricao
+        it[ProdutoTabela.precoCentavos] = produto.precoCentavos
+        it[ProdutoTabela.precoPromocionalCentavos] = produto.precoPromocionalCentavos
+        it[ProdutoTabela.imagemUrl] = produto.imagemUrl
+        it[ProdutoTabela.destaque] = produto.destaque
+        it[ProdutoTabela.ativo] = produto.ativo
+    }
+
+    /** Grupos (com opções) por produto, numa consulta por tabela. */
+    private fun gruposDaLoja(lojaId: Long, produtoId: Long? = null): Map<Long, List<GrupoOpcoes>> {
+        val linhasGrupo = GrupoOpcaoTabela.selectAll().where {
+            val base = GrupoOpcaoTabela.lojaId eq lojaId
+            if (produtoId != null) base and (GrupoOpcaoTabela.produtoId eq produtoId) else base
+        }.orderBy(GrupoOpcaoTabela.ordem).toList()
+        if (linhasGrupo.isEmpty()) return emptyMap()
+
+        val idsGrupo = linhasGrupo.map { it[GrupoOpcaoTabela.id].value }
+        val opcoesPorGrupo = OpcaoTabela.selectAll()
+            .where { (OpcaoTabela.lojaId eq lojaId) and (OpcaoTabela.grupoId inList idsGrupo) }
+            .orderBy(OpcaoTabela.ordem)
+            .groupBy({ it[OpcaoTabela.grupoId] }) {
+                Opcao(it[OpcaoTabela.id].value, it[OpcaoTabela.nome], it[OpcaoTabela.precoCentavos], it[OpcaoTabela.ativo])
+            }
+
+        return linhasGrupo.groupBy({ it[GrupoOpcaoTabela.produtoId] }) {
+            GrupoOpcoes(
+                id = it[GrupoOpcaoTabela.id].value,
+                nome = it[GrupoOpcaoTabela.nome],
+                minimo = it[GrupoOpcaoTabela.minimo],
+                maximo = it[GrupoOpcaoTabela.maximo],
+                permiteRepetir = it[GrupoOpcaoTabela.permiteRepetir],
+                opcoes = opcoesPorGrupo[it[GrupoOpcaoTabela.id].value].orEmpty(),
+            )
+        }
     }
 
     private fun ResultRow.paraCategoria() = Categoria(
@@ -238,16 +377,66 @@ class RepositorioCatalogoExposed : RepositorioCatalogo {
         ordem = this[CategoriaTabela.ordem],
     )
 
-    private fun ResultRow.paraProduto() = Produto(
+    private fun ResultRow.paraProduto(grupos: List<GrupoOpcoes>) = Produto(
         id = this[ProdutoTabela.id].value,
         lojaId = this[ProdutoTabela.lojaId],
         categoriaId = this[ProdutoTabela.categoriaId],
         nome = this[ProdutoTabela.nome],
         descricao = this[ProdutoTabela.descricao],
         precoCentavos = this[ProdutoTabela.precoCentavos],
-        adicionais = this[ProdutoTabela.adicionais],
+        precoPromocionalCentavos = this[ProdutoTabela.precoPromocionalCentavos],
+        imagemUrl = this[ProdutoTabela.imagemUrl],
+        grupos = grupos,
         destaque = this[ProdutoTabela.destaque],
         ativo = this[ProdutoTabela.ativo],
+    )
+}
+
+class RepositorioDepoimentosExposed : RepositorioDepoimentos {
+    override fun listar(lojaId: Long, somenteAtivos: Boolean): List<Depoimento> =
+        DepoimentoTabela.selectAll().where {
+            val base = DepoimentoTabela.lojaId eq lojaId
+            if (somenteAtivos) base and (DepoimentoTabela.ativo eq true) else base
+        }.orderBy(DepoimentoTabela.ordem to SortOrder.ASC, DepoimentoTabela.id to SortOrder.DESC).map { it.paraDepoimento() }
+
+    override fun buscar(lojaId: Long, id: Long) =
+        DepoimentoTabela.selectAll().where { (DepoimentoTabela.id eq id) and (DepoimentoTabela.lojaId eq lojaId) }
+            .singleOrNull()?.paraDepoimento()
+
+    override fun salvar(depoimento: Depoimento): Depoimento {
+        val preencher: (UpdateBuilder<*>) -> Unit = {
+            it[DepoimentoTabela.autor] = depoimento.autor
+            it[DepoimentoTabela.texto] = depoimento.texto
+            it[DepoimentoTabela.nota] = depoimento.nota?.toShort()
+            it[DepoimentoTabela.ativo] = depoimento.ativo
+            it[DepoimentoTabela.ordem] = depoimento.ordem
+        }
+        val id = if (depoimento.id == 0L) {
+            DepoimentoTabela.insertAndGetId {
+                it[lojaId] = depoimento.lojaId
+                preencher(it)
+            }.value
+        } else {
+            DepoimentoTabela.update({ (DepoimentoTabela.id eq depoimento.id) and (DepoimentoTabela.lojaId eq depoimento.lojaId) }) {
+                preencher(it)
+            }
+            depoimento.id
+        }
+        return buscar(depoimento.lojaId, id)!!
+    }
+
+    override fun remover(lojaId: Long, id: Long) {
+        DepoimentoTabela.deleteWhere { (DepoimentoTabela.id eq id) and (DepoimentoTabela.lojaId eq lojaId) }
+    }
+
+    private fun ResultRow.paraDepoimento() = Depoimento(
+        id = this[DepoimentoTabela.id].value,
+        lojaId = this[DepoimentoTabela.lojaId],
+        autor = this[DepoimentoTabela.autor],
+        texto = this[DepoimentoTabela.texto],
+        nota = this[DepoimentoTabela.nota]?.toInt(),
+        ativo = this[DepoimentoTabela.ativo],
+        ordem = this[DepoimentoTabela.ordem],
     )
 }
 
@@ -270,6 +459,21 @@ class RepositorioPedidosExposed : RepositorioPedidos {
                 (PedidoTabela.criadoEm less ate.atOffset(ZoneOffset.UTC))
         }.orderBy(PedidoTabela.criadoEm, SortOrder.DESC).limit(limite).map { it.paraPedido() }
 
+    override fun contarPorDia(lojaId: Long, de: LocalDate, ate: LocalDate): Map<LocalDate, Int> {
+        val total = PedidoTabela.id.count()
+        return PedidoTabela.select(PedidoTabela.diaProducao, total).where {
+            (PedidoTabela.lojaId eq lojaId) and
+                (PedidoTabela.diaProducao greaterEq de) and
+                (PedidoTabela.diaProducao lessEq ate) and
+                (PedidoTabela.status neq StatusPedido.CANCELADO.name)
+        }.groupBy(PedidoTabela.diaProducao).associate { it[PedidoTabela.diaProducao] to it[total].toInt() }
+    }
+
+    override fun travarDia(lojaId: Long, dia: LocalDate) {
+        // Lock consultivo do PostgreSQL liberado no fim da transação. Valores são números gerados aqui (sem entrada do usuário).
+        TransactionManager.current().exec("SELECT pg_advisory_xact_lock(${lojaId.toInt()}, ${dia.toEpochDay().toInt()})")
+    }
+
     override fun salvar(pedido: Pedido): Pedido {
         return if (pedido.id == 0L) {
             val id = PedidoTabela.insertAndGetId {
@@ -280,6 +484,8 @@ class RepositorioPedidosExposed : RepositorioPedidos {
                 it[status] = pedido.status.name
                 it[criadoEm] = pedido.criadoEm.atOffset(ZoneOffset.UTC)
                 it[atualizadoEm] = pedido.atualizadoEm.atOffset(ZoneOffset.UTC)
+                it[agendadoPara] = pedido.agendadoPara?.atOffset(ZoneOffset.UTC)
+                it[diaProducao] = pedido.diaProducao
             }.value
             buscar(pedido.lojaId, id)!!
         } else {
@@ -300,6 +506,8 @@ class RepositorioPedidosExposed : RepositorioPedidos {
         status = StatusPedido.valueOf(this[PedidoTabela.status]),
         criadoEm = this[PedidoTabela.criadoEm].toInstant(),
         atualizadoEm = this[PedidoTabela.atualizadoEm].toInstant(),
+        agendadoPara = this[PedidoTabela.agendadoPara]?.toInstant(),
+        diaProducao = this[PedidoTabela.diaProducao],
     )
 }
 

@@ -60,13 +60,18 @@ class ServicoCatalogo(
 
     suspend fun listarProdutos(lojaId: Long, somenteAtivos: Boolean): List<ProdutoDto> = tx.executar {
         val nomes = catalogo.listarCategorias(lojaId).associate { it.id to it.nome }
-        catalogo.listarProdutos(lojaId, somenteAtivos).map { it.paraDto(it.categoriaId?.let(nomes::get)) }
+        catalogo.listarProdutos(lojaId, somenteAtivos).map {
+            it.paraDto(it.categoriaId?.let(nomes::get), somenteOpcoesAtivas = somenteAtivos)
+        }
     }
 
     suspend fun criarProduto(ator: Ator, req: SalvarProdutoDto): ProdutoDto {
         ator.exigirPapel(*quemEdita)
         val lojaId = ator.lojaObrigatoria()
-        val novo = Produto.novo(lojaId, req.categoriaId, req.nome, req.descricao, req.precoCentavos, req.adicionais, req.destaque, req.ativo)
+        val novo = Produto.novo(
+            lojaId, req.categoriaId, req.nome, req.descricao, req.precoCentavos, req.precoPromocionalCentavos,
+            req.imagemUrl, req.grupos.map { it.paraDominio() }, req.destaque, req.ativo,
+        )
         return tx.executar {
             val categoria = categoriaDaLoja(lojaId, req.categoriaId)
             catalogo.salvarProduto(novo).paraDto(categoria?.nome)
@@ -76,10 +81,14 @@ class ServicoCatalogo(
     suspend fun atualizarProduto(ator: Ator, id: Long, req: SalvarProdutoDto): ProdutoDto {
         ator.exigirPapel(*quemEdita)
         val lojaId = ator.lojaObrigatoria()
+        val grupos = req.grupos.map { it.paraDominio() }
         return tx.executar {
             val produto = catalogo.buscarProduto(lojaId, id) ?: throw produtoNaoEncontrado()
             val categoria = categoriaDaLoja(lojaId, req.categoriaId)
-            produto.atualizar(req.categoriaId, req.nome, req.descricao, req.precoCentavos, req.adicionais, req.destaque, req.ativo)
+            produto.atualizar(
+                req.categoriaId, req.nome, req.descricao, req.precoCentavos, req.precoPromocionalCentavos,
+                req.imagemUrl, grupos, req.destaque, req.ativo,
+            )
             catalogo.salvarProduto(produto).paraDto(categoria?.nome)
         }
     }
@@ -90,6 +99,18 @@ class ServicoCatalogo(
         return tx.executar {
             val produto = catalogo.buscarProduto(lojaId, id) ?: throw produtoNaoEncontrado()
             produto.marcarDestaque(destaque)
+            val categoria = produto.categoriaId?.let { catalogo.buscarCategoria(lojaId, it) }
+            catalogo.salvarProduto(produto).paraDto(categoria?.nome)
+        }
+    }
+
+    /** Pausa (esgotado) ou volta a vender o produto. Atendente também pode, para avisar que acabou. */
+    suspend fun definirDisponivel(ator: Ator, id: Long, disponivel: Boolean): ProdutoDto {
+        ator.exigirPapel(Papel.DONO, Papel.GERENTE, Papel.ATENDENTE, Papel.COZINHA)
+        val lojaId = ator.lojaObrigatoria()
+        return tx.executar {
+            val produto = catalogo.buscarProduto(lojaId, id) ?: throw produtoNaoEncontrado()
+            produto.definirDisponivel(disponivel)
             val categoria = produto.categoriaId?.let { catalogo.buscarCategoria(lojaId, it) }
             catalogo.salvarProduto(produto).paraDto(categoria?.nome)
         }

@@ -28,15 +28,8 @@ private val jsonApi = Json {
     encodeDefaults = true
 }
 
-fun createHttpClient() = HttpClient {
-    install(ContentNegotiation) { json(jsonApi) }
-
-    install(Logging) {
-        logger = Logger.DEFAULT
-        level = LogLevel.INFO
-        sanitizeHeader { it == HttpHeaders.Authorization } // nunca registrar o token
-    }
-
+/** Valida respostas: erro vira [ErroApi] com a mensagem do servidor; 401 encerra a sessão. */
+private fun io.ktor.client.HttpClientConfig<*>.validarRespostas() {
     HttpResponseValidator {
         validateResponse { resposta ->
             if (resposta.status.isSuccess()) return@validateResponse
@@ -52,6 +45,27 @@ fun createHttpClient() = HttpClient {
             )
         }
     }
+}
+
+/** Cliente para envio de arquivos (multipart): não força Content-Type JSON. */
+fun createUploadClient() = HttpClient {
+    install(ContentNegotiation) { json(jsonApi) }
+    validarRespostas()
+    defaultRequest {
+        Session.usuarioLogado?.token?.takeIf { it.isNotBlank() }?.let { header(HttpHeaders.Authorization, "Bearer $it") }
+    }
+}
+
+fun createHttpClient() = HttpClient {
+    install(ContentNegotiation) { json(jsonApi) }
+
+    install(Logging) {
+        logger = Logger.DEFAULT
+        level = LogLevel.INFO
+        sanitizeHeader { it == HttpHeaders.Authorization } // nunca registrar o token
+    }
+
+    validarRespostas()
 
     defaultRequest {
         contentType(ContentType.Application.Json)

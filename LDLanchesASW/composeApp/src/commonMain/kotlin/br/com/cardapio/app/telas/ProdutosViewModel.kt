@@ -55,6 +55,22 @@ class ProdutosViewModel(
         }
     }
 
+    /** Pausa (esgotado) ou volta a vender, direto da lista. */
+    suspend fun alternarDisponivel(produto: Produto) {
+        val id = produto.id ?: return
+        executar("Erro ao pausar produto") {
+            val atualizado = api.definirDisponivel(id, !produto.ativo).toProduto()
+            produtos = produtos.map { if (it.id == id) atualizado else it }
+        }
+    }
+
+    /** Envia a foto e devolve o endereço (ou null se falhar; o erro vai para [erro]). */
+    suspend fun enviarFoto(arquivo: br.com.cardapio.app.data.ArquivoSelecionado): String? {
+        var url: String? = null
+        executar("Erro ao enviar a foto") { url = api.enviarImagem(arquivo) }
+        return url
+    }
+
     private suspend fun executar(mensagemPadrao: String, bloco: suspend () -> Unit) {
         try {
             carregando = true
@@ -75,9 +91,11 @@ private fun ProdutoDto.toProduto() = Produto(
     nome = nome,
     descricao = descricao,
     preco = precoCentavos / 100.0,
+    precoPromocional = precoPromocionalCentavos?.let { it / 100.0 },
+    imagemUrl = imagemUrl,
     tipo = categoriaNome.orEmpty(),
     categoriaId = categoriaId,
-    adicionais = adicionais,
+    grupos = grupos,
     destacado = destaque,
     ativo = ativo,
 )
@@ -87,7 +105,9 @@ fun Produto.toDto() = SalvarProdutoDto(
     nome = nome,
     descricao = descricao,
     precoCentavos = (preco * 100).roundToLong(),
-    adicionais = adicionais,
+    precoPromocionalCentavos = precoPromocional?.let { (it * 100).roundToLong() },
+    imagemUrl = imagemUrl,
+    grupos = grupos,
     destaque = destacado,
     ativo = ativo,
 )

@@ -9,7 +9,7 @@ object Formatos {
     private val EMAIL = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 
     /** Caminhos que não podem virar slug de loja porque são usados pelo próprio sistema. */
-    val SLUGS_RESERVADOS = setOf("api", "admin", "painel", "saude", "static", "assets", "login")
+    val SLUGS_RESERVADOS = setOf("api", "admin", "painel", "saude", "static", "assets", "login", "midia")
 
     const val SENHA_TAMANHO_MINIMO = 8
 

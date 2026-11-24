@@ -61,6 +61,8 @@ class Loja(
     aparencia: Aparencia,
     modulos: Set<Modulo>,
     personalizacaoLiberada: Set<ItemPersonalizavel>,
+    contato: ContatoLoja = ContatoLoja(),
+    funcionamento: Funcionamento = Funcionamento(),
 ) {
     var slug: String = slug; private set
     var nome: String = nome; private set
@@ -69,6 +71,8 @@ class Loja(
     var aparencia: Aparencia = aparencia; private set
     var modulos: Set<Modulo> = modulos; private set
     var personalizacaoLiberada: Set<ItemPersonalizavel> = personalizacaoLiberada; private set
+    var contato: ContatoLoja = contato; private set
+    var funcionamento: Funcionamento = funcionamento; private set
 
     init {
         validarSlug(slug)
@@ -114,6 +118,23 @@ class Loja(
     }
 
     fun visivelAoPublico(): Boolean = ativa
+
+    /** Dono/gerente atualizam contato, endereço, horários e regras de encomenda. */
+    fun atualizarInformacoes(contato: ContatoLoja, funcionamento: Funcionamento) {
+        this.contato = contato
+        this.funcionamento = funcionamento
+    }
+
+    /**
+     * Funcionamento que vale na prática: sem o módulo AGENDAMENTO (ligado pelo super admin),
+     * a loja não aceita encomendas agendadas, mesmo que a configuração esteja salva.
+     */
+    val funcionamentoEfetivo: Funcionamento
+        get() = if (Modulo.AGENDAMENTO in modulos) {
+            funcionamento
+        } else {
+            funcionamento.copy(encomenda = funcionamento.encomenda.copy(aceitaAgendamento = false, exigeAgendamento = false))
+        }
 
     companion object {
         fun nova(

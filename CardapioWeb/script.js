@@ -21,6 +21,16 @@ async function carregarVitrineDaLoja() {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         VITRINE_LOJA = await resp.json();
         aplicarAparenciaDaLoja(VITRINE_LOJA);
+        atualizarStatusLoja();
+        if (!numeroWhatsappDaLoja()) {
+            const fab = document.getElementById('btn-whats-flutuante');
+            if (fab) fab.style.display = 'none';
+        }
+        if (typeof preencherVisualPerfilGlobal === 'function') preencherVisualPerfilGlobal();
+        renderizarSobreLoja();
+        carregarDepoimentos();
+        ajustarFormasDeEntrega();
+        inicializarAgendamentoCheckout();
         return VITRINE_LOJA;
     } catch (e) {
         console.error('Erro ao carregar dados da loja:', e);
@@ -143,31 +153,174 @@ function formatarDataPedido(iso) {
 let categorias = [];
 const mockProdutos = [];
 
-// TODO (Fase 1): endereço, telefone e horários passam a vir do cadastro da loja.
-const ENDERECO_COMERCIO = {
-    nome: "LD Lanches",
-    logradouro: "Rua do Marechal Teodoro",
-    numero: "578",
-    bairro: "Itaim Paulista",
-    cidade: "São Paulo",
-    uf: "SP",
-    complemento: "Proximo ao mercado",
-    cep: "08441198",
-    telefone: "(11) 98479-8725"
-};
+// ---------- Dados da loja (vêm de /api/public/lojas/{slug}) ----------
+function contatoDaLoja() {
+    return (VITRINE_LOJA && VITRINE_LOJA.contato) || {};
+}
+function formatarTelefone(t) {
+    if (!t) return '';
+    const d = String(t).replace(/\D/g, '');
+    if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    return d;
+}
+/** Endereço da loja no formato usado pelas telas (retirada no balcão). */
+function enderecoDaLoja() {
+    const c = contatoDaLoja();
+    return { nome: (VITRINE_LOJA && VITRINE_LOJA.nome) || '', ...(c.endereco || {}), telefone: formatarTelefone(c.telefone) };
+}
+/** Número no formato do wa.me (55 + DDD + número) ou null se a loja não cadastrou telefone. */
+function numeroWhatsappDaLoja() {
+    const t = contatoDaLoja().telefone;
+    return t ? '55' + t : null;
+}
 
-function parseExtras(extraStr) {
-    if (!extraStr) return [];
-    return extraStr
-        .split(';')
-        .map(e => e.trim())
-        .filter(e => e.length > 0)
-        .map(part => {
-            const [nomeRaw, precoRaw] = part.split(':');
-            const nome = (nomeRaw || '').trim();
-            const preco = precoRaw ? parseFloat(precoRaw.replace(',', '.')) : 0;
-            return { nome, preco: isNaN(preco) ? 0 : preco };
-        });
+/** Escapa texto vindo do cadastro antes de inserir como HTML. */
+function esc(texto) {
+    return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/** Seção "Sobre a loja" da página inicial: horários, endereço, telefone e Instagram. */
+function renderizarSobreLoja() {
+    const secao = document.getElementById('secao-sobre-loja');
+    const alvo = document.getElementById('sobre-loja-conteudo');
+    if (!secao || !alvo || !VITRINE_LOJA) return;
+
+    const c = contatoDaLoja();
+    const e = c.endereco;
+    const linhas = [];
+
+    const horarios = VITRINE_LOJA.horarios || [];
+    if (horarios.length) {
+        const porDia = {};
+        horarios.forEach(h => { (porDia[h.diaSemana] = porDia[h.diaSemana] || []).push(`${h.abre}–${h.fecha}`); });
+        const dias = [1, 2, 3, 4, 5, 6, 7].map(d =>
+            `<div class="horario-linha"><span>${DIAS_SEMANA[d][0].toUpperCase() + DIAS_SEMANA[d].slice(1)}</span><span>${porDia[d] ? porDia[d].join(', ') : 'Fechado'}</span></div>`);
+        linhas.push(`<div class="sobre-bloco"><strong>Horários</strong>${dias.join('')}</div>`);
+    }
+    if (e) {
+        const l1 = [e.logradouro, e.numero].filter(Boolean).join(', ');
+        const l2 = [e.bairro, [e.cidade, e.uf].filter(Boolean).join('/')].filter(Boolean).join(' - ');
+        linhas.push(`<div class="sobre-bloco"><strong>Endereço</strong><div>${esc(l1)}${e.complemento ? ' · ' + esc(e.complemento) : ''}</div><div>${esc(l2)}</div></div>`);
+    }
+    const contatos = [];
+    if (c.telefone) contatos.push(`<div>📞 ${esc(formatarTelefone(c.telefone))}</div>`);
+    if (c.instagram) contatos.push(`<div>📷 <a href="https://instagram.com/${encodeURIComponent(c.instagram)}" target="_blank" rel="noopener">@${esc(c.instagram)}</a></div>`);
+    if (contatos.length) linhas.push(`<div class="sobre-bloco"><strong>Contato</strong>${contatos.join('')}</div>`);
+
+    alvo.innerHTML = linhas.join('');
+    secao.hidden = linhas.length === 0;
+}
+
+/** Depoimentos ativos da loja (página inicial). */
+async function carregarDepoimentos() {
+    const secao = document.getElementById('secao-depoimentos');
+    const lista = document.getElementById('depoimentos-lista');
+    if (!secao || !lista) return;
+    try {
+        const resp = await fetch(`${API_LOJA}/depoimentos`, { headers: { 'Accept': 'application/json' } });
+        if (!resp.ok) return;
+        const depoimentos = await resp.json();
+        lista.innerHTML = depoimentos.map(d => `
+            <div class="depoimento-card">
+                ${d.nota ? `<div class="depoimento-nota" aria-label="Nota ${d.nota} de 5">${'★'.repeat(d.nota)}${'☆'.repeat(5 - d.nota)}</div>` : ''}
+                <p class="depoimento-texto">“${esc(d.texto)}”</p>
+                <div class="depoimento-autor">— ${esc(d.autor)}</div>
+            </div>`).join('');
+        secao.hidden = depoimentos.length === 0;
+    } catch (e) {
+        console.error('Erro ao carregar depoimentos:', e);
+    }
+}
+
+// ---------- Checkout: modo de entrega e encomenda agendada ----------
+let AGENDA_LOJA = [];
+
+/** Mostra só as formas de entrega ligadas para a loja (módulos ENTREGA / RETIRADA). */
+function ajustarFormasDeEntrega() {
+    if (!VITRINE_LOJA) return;
+    const modulos = VITRINE_LOJA.modulos || [];
+    const radios = document.querySelectorAll('input[name="tipoEntrega"]');
+    if (!radios.length) return;
+    radios.forEach(r => {
+        const ligado = modulos.includes(r.value);
+        r.closest('label').style.display = ligado ? '' : 'none';
+        if (!ligado && r.checked) r.checked = false;
+    });
+    if (!document.querySelector('input[name="tipoEntrega"]:checked')) {
+        const primeiro = Array.from(radios).find(r => modulos.includes(r.value));
+        if (primeiro) { primeiro.checked = true; primeiro.dispatchEvent(new Event('change', { bubbles: true })); }
+    }
+}
+
+function rotuloDia(iso) {
+    const [a, m, d] = iso.split('-').map(Number);
+    const data = new Date(a, m - 1, d);
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const dif = Math.round((data - hoje) / 86400000);
+    const semana = data.toLocaleDateString('pt-BR', { weekday: 'long' });
+    const dm = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+    if (dif === 0) return `Hoje (${dm})`;
+    if (dif === 1) return `Amanhã (${dm})`;
+    return `${semana[0].toUpperCase() + semana.slice(1)} (${dm})`;
+}
+
+/** Preenche dia/horário da encomenda a partir de /agenda. */
+async function inicializarAgendamentoCheckout() {
+    const secao = document.getElementById('checkout-agendamento');
+    if (!secao || !VITRINE_LOJA) return;
+    const enc = VITRINE_LOJA.encomenda || {};
+    if (!enc.aceitaAgendamento) return;
+
+    try {
+        const resp = await fetch(`${API_LOJA}/agenda`, { headers: { 'Accept': 'application/json' } });
+        AGENDA_LOJA = resp.ok ? await resp.json() : [];
+    } catch (e) {
+        AGENDA_LOJA = [];
+    }
+
+    const selDia = document.getElementById('agendamento-dia');
+    const selHora = document.getElementById('agendamento-hora');
+    const nota = document.getElementById('agendamento-nota');
+
+    const opcoesDia = [];
+    if (!enc.exigeAgendamento && VITRINE_LOJA.aberta) opcoesDia.push('<option value="">O quanto antes</option>');
+    AGENDA_LOJA.forEach(d => opcoesDia.push(
+        `<option value="${d.data}" ${d.lotado ? 'disabled' : ''}>${rotuloDia(d.data)}${d.lotado ? ' — sem vagas' : ''}</option>`));
+    selDia.innerHTML = opcoesDia.join('');
+
+    // primeiro dia disponível já selecionado
+    const primeiroLivre = Array.from(selDia.options).find(o => !o.disabled);
+    if (primeiroLivre) selDia.value = primeiroLivre.value;
+
+    function preencherHoras() {
+        const dia = AGENDA_LOJA.find(d => d.data === selDia.value);
+        selHora.innerHTML = dia ? dia.horarios.map(h => `<option value="${h}">${h}</option>`).join('') : '';
+        selHora.parentElement.style.display = dia ? '' : 'none';
+    }
+    selDia.addEventListener('change', preencherHoras);
+    preencherHoras();
+
+    const avisos = [];
+    if (enc.antecedenciaMinimaHoras > 0) avisos.push(`Pedidos com pelo menos ${enc.antecedenciaMinimaHoras}h de antecedência.`);
+    if (!AGENDA_LOJA.some(d => !d.lotado)) avisos.push('No momento não há datas disponíveis.');
+    nota.textContent = avisos.join(' ');
+    secao.hidden = false;
+}
+
+/** Data/hora escolhida para a encomenda ("AAAA-MM-DDTHH:mm") ou null para "o quanto antes". */
+function agendamentoEscolhido() {
+    const secao = document.getElementById('checkout-agendamento');
+    if (!secao || secao.hidden) return null;
+    const dia = document.getElementById('agendamento-dia').value;
+    const hora = document.getElementById('agendamento-hora').value;
+    return dia && hora ? `${dia}T${hora}` : null;
+}
+
+/** Valor total de uma linha da sacola: (preço do produto + opções escolhidas) × quantidade. */
+function valorItem(item) {
+    const opcoes = (item.extras || []).reduce((soma, e) => soma + (e.preco * e.qtd), 0);
+    return (item.precoBase + opcoes) * item.quantidade;
 }
 
 async function carregarProdutosDoBackend() {
@@ -187,16 +340,21 @@ async function carregarProdutosDoBackend() {
         mockProdutos.length = 0;
 
         // converte o DTO da API para o formato usado no front
-        // ProdutoDto do servidor: { id, categoriaId, categoriaNome, nome, descricao, precoCentavos, adicionais, destaque }
+        // ProdutoDto do servidor (preços em centavos; grupos = opções com mínimo/máximo)
         produtosApi.forEach(p => {
+            const temPromo = p.precoPromocionalCentavos != null;
             mockProdutos.push({
                 id: p.id,
                 nome: p.nome,
                 descricao: p.descricao || '',
-                preco: (p.precoCentavos || 0) / 100,
-                imagemUrl: imagemPadraoProduto(),   // fotos de produto entram na Fase 1
+                preco: (temPromo ? p.precoPromocionalCentavos : p.precoCentavos) / 100,
+                precoOriginal: temPromo ? p.precoCentavos / 100 : null,
+                imagemUrl: p.imagemUrl || imagemPadraoProduto(),
                 categoria: p.categoriaNome || 'Outros',
-                extras: parseExtras(p.adicionais),
+                grupos: (p.grupos || []).map(g => ({
+                    nome: g.nome, minimo: g.minimo, maximo: g.maximo, permiteRepetir: g.permiteRepetir,
+                    opcoes: (g.opcoes || []).map(o => ({ nome: o.nome, preco: (o.precoCentavos || 0) / 100 }))
+                })),
                 destaque: !!p.destaque
             });
         });
@@ -255,7 +413,6 @@ async function carregarCategoriasDoBackend() {
   }
 
 const taxaEntrega = 5.00;
-const WHATSAPP_NUMERO = "5511999998888"; // altere para o número real
 
 
 // ================== PERFIL / CADASTRO ==================
@@ -354,7 +511,7 @@ function preencherVisualPerfilGlobal() {
             document.querySelector('input[name="tipoEntrega"]:checked')?.value || 'ENTREGA';
 
         if (tipoEntregaSelecionado === 'RETIRADA') {
-            const loja = ENDERECO_COMERCIO;
+            const loja = enderecoDaLoja();
 
             const lojaLinha1 = [loja.logradouro, loja.numero].filter(Boolean).join(', ');
             const lojaCidadeUf = (loja.cidade && loja.uf)
@@ -592,26 +749,57 @@ function configurarBotaoHeaderEntrega() {
     });
 }
 
+const DIAS_SEMANA = ['', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+
+/** Próxima abertura a partir de agora (texto curto) ou null. diaSemana: 1 = segunda … 7 = domingo. */
+function proximaAbertura(horarios) {
+    if (!horarios || !horarios.length) return null;
+    const agora = new Date();
+    const minAgora = agora.getHours() * 60 + agora.getMinutes();
+    for (let i = 0; i < 8; i++) {
+        const d = new Date(agora); d.setDate(agora.getDate() + i);
+        const dia = d.getDay() === 0 ? 7 : d.getDay();
+        const doDia = horarios.filter(h => h.diaSemana === dia)
+            .map(h => h.abre)
+            .filter(abre => i > 0 || (parseInt(abre.slice(0, 2)) * 60 + parseInt(abre.slice(3))) > minAgora)
+            .sort();
+        if (doDia.length) {
+            if (i === 0) return `abre hoje às ${doDia[0]}`;
+            if (i === 1) return `abre amanhã às ${doDia[0]}`;
+            return `abre ${DIAS_SEMANA[dia]} às ${doDia[0]}`;
+        }
+    }
+    return null;
+}
+
 function atualizarStatusLoja() {
     const flagEl = document.getElementById('loja-status-flag');
     const descEl = document.getElementById('loja-status-desc');
-    if (!flagEl || !descEl) return;
+    if (!flagEl || !descEl || !VITRINE_LOJA) return;
 
-    const agora = new Date();
-    const hora  = agora.getHours();
-    const aberto = hora >= 18 && hora < 23;
-
-    if (aberto) {
-        flagEl.textContent = "Aberto";
-        flagEl.classList.add('status-aberto');
-        flagEl.classList.remove('status-fechado');
-        descEl.textContent = "Entregas em ~40 min na sua região.";
+    const v = VITRINE_LOJA;
+    const encomenda = v.encomenda || {};
+    let titulo, desc;
+    if (v.pausada) {
+        titulo = 'Pausado';
+        desc = v.mensagemPausa || 'Não estamos recebendo pedidos no momento.';
+    } else if (encomenda.exigeAgendamento) {
+        titulo = 'Por encomenda';
+        desc = 'Escolha a data e o horário ao finalizar o pedido.';
+    } else if (v.aberta) {
+        titulo = 'Aberto';
+        desc = encomenda.aceitaAgendamento ? 'Peça agora ou agende sua encomenda.' : 'Estamos recebendo pedidos.';
     } else {
-        flagEl.textContent = "Fechado";
-        flagEl.classList.add('status-fechado');
-        flagEl.classList.remove('status-aberto');
-        descEl.textContent = "Fora do horário. Consulte nossos horários abaixo.";
+        titulo = 'Fechado';
+        const prox = proximaAbertura(v.horarios);
+        desc = [prox ? prox[0].toUpperCase() + prox.slice(1) + '.' : '', encomenda.aceitaAgendamento ? 'Você pode agendar sua encomenda.' : '']
+            .filter(Boolean).join(' ');
     }
+    const ok = !v.pausada && (v.aberta || encomenda.aceitaAgendamento);
+    flagEl.textContent = titulo;
+    flagEl.classList.toggle('status-aberto', ok);
+    flagEl.classList.toggle('status-fechado', !ok);
+    descEl.textContent = desc;
 }
 
 function configurarBotaoWhatsFlutuante() {
@@ -619,9 +807,10 @@ function configurarBotaoWhatsFlutuante() {
     if (!btn) return;
 
     btn.addEventListener('click', () => {
+        const numero = numeroWhatsappDaLoja();
+        if (!numero) return;
         const msg = encodeURIComponent("Olá, gostaria de fazer um pedido.");
-        const link = "https://wa.me/" + WHATSAPP_NUMERO + "?text=" + msg;
-        window.open(link, "_blank");
+        window.open("https://wa.me/" + numero + "?text=" + msg, "_blank");
     });
 }
 
@@ -708,22 +897,18 @@ function clearCart() {
     }
 }
 
-/**
- * Adiciona um produto ao carrinho, com os extras selecionados.
- * produto: objeto de mockProdutos
- * extrasSelecionados: { "Carne extra": 1, "Cheddar extra": 2, ... }
- */
-function addToCart(produto, extrasSelecionados = {}) {
-    const cart = getCart();
+/** O produto tem grupo obrigatório (precisa abrir a página do produto para escolher)? */
+function produtoExigeEscolha(produto) {
+    return (produto.grupos || []).some(g => g.minimo > 0);
+}
 
-    // monta a lista de extras com preço e quantidade
-    const extrasDetalhados = (produto.extras || [])
-        .map(extra => ({
-            nome: extra.nome,
-            preco: extra.preco,
-            qtd: extrasSelecionados[extra.nome] || 0
-        }))
-        .filter(e => e.qtd > 0);
+/**
+ * Adiciona um produto à sacola com as opções escolhidas.
+ * selecoes: [{ grupo, nome, preco, qtd }] — preço e quantidade por unidade do produto.
+ */
+function addToCart(produto, selecoes = []) {
+    const cart = getCart();
+    const extrasDetalhados = (selecoes || []).filter(e => e.qtd > 0);
 
     // considera dois itens iguais se tiverem o mesmo produto + mesma combinação de extras
     const existente = cart.find(item =>
@@ -751,11 +936,17 @@ function addToCart(produto, extrasSelecionados = {}) {
 /**
  * Versão com feedback visual (toast/modal)
  */
-function addToCartWithFeedback(produtoId, extrasSelecionados = {}) {
+function addToCartWithFeedback(produtoId, selecoes = []) {
     const produto = mockProdutos.find(p => p.id === produtoId);
     if (!produto) return;
 
-    addToCart(produto, extrasSelecionados);
+    // Produto com escolha obrigatória (ex.: "escolha 4 sabores"): abre a página dele
+    if (produtoExigeEscolha(produto) && (!selecoes || selecoes.length === 0)) {
+        window.location.href = 'produto.html?id=' + produto.id;
+        return;
+    }
+
+    addToCart(produto, selecoes);
 
     const nome = produto.nome || "Item";
     showActionFeedback(
@@ -766,11 +957,13 @@ function addToCartWithFeedback(produtoId, extrasSelecionados = {}) {
 }
 
 function updateCartQuantity(produtoId, action) {
-    const cart = getCart(); // lê do localStorage
+    alterarQuantidadeLinha(getCart().findIndex(item => item.id === produtoId), action);
+}
 
-    // acha o primeiro item com esse id
-    const index = cart.findIndex(item => item.id === produtoId);
-    if (index === -1) return;
+/** Muda a quantidade de uma linha da sacola (a mesma peça com opções diferentes ocupa linhas diferentes). */
+function alterarQuantidadeLinha(index, action) {
+    const cart = getCart();
+    if (index < 0 || index >= cart.length) return;
 
     if (action === 'add') {
         cart[index].quantidade += 1;
@@ -942,7 +1135,7 @@ function showWhatsappPrompt(pedido) {
                 (soma, extra) => soma + (extra.preco * extra.qtd),
                 0
             );
-            const totalItem = (item.precoBase * item.quantidade) + totalExtrasItem;
+            const totalItem = valorItem(item);
         
             return `${item.quantidade}x ${item.nome} - R$ ${totalItem.toFixed(2).replace('.', ',')}`;
         });
@@ -966,85 +1159,11 @@ function showWhatsappPrompt(pedido) {
             (linhasItens.length ? `Itens do pedido:\n${linhasItens.join('\n')}` : "")
         );
 
-        const link = "https://wa.me/" + WHATSAPP_NUMERO + "?text=" + msg;
-        window.open(link, "_blank");
+        const numero = numeroWhatsappDaLoja();
+        if (numero) window.open("https://wa.me/" + numero + "?text=" + msg, "_blank");
 
         encerrarFluxo();
     };
-}
-
-// Monta a descrição do pedido que será enviada para o backend /order
-function montarDescricaoParaBackend(pedido, perfil) {
-    const itens = pedido.itens || [];
-    const linhas = [];
-
-    // --- produtos ---
-    linhas.push("Produtos:");
-    itens.forEach(item => {
-        const totalExtrasItem = (item.extras || []).reduce(
-            (soma, extra) => soma + (extra.preco * extra.qtd),
-            0
-        );
-        const totalItem = (item.precoBase * item.quantidade) + totalExtrasItem;
-
-        const extrasTexto = (item.extras || [])
-            .filter(e => e.qtd > 0)
-            .map(e => `${e.qtd}x ${e.nome}`)
-            .join(", ");
-
-        const extrasParte = extrasTexto ? ` | Extras: ${extrasTexto}` : "";
-
-        linhas.push(
-            `- ${item.quantidade}x ${item.nome} (R$ ${totalItem.toFixed(2).replace('.', ',')})${extrasParte}`
-        );
-    });
-
-    // --- endereço / entrega ---
-    if (perfil) {
-        const linhaEndereco1 = [perfil.logradouro, perfil.numero]
-            .filter(Boolean)
-            .join(", ");
-
-        const cidadeUf = (perfil.cidade && perfil.uf)
-            ? `${perfil.cidade}/${perfil.uf}`
-            : (perfil.cidade || perfil.uf || "");
-
-        const linhaEndereco2 = [perfil.bairro, cidadeUf]
-            .filter(Boolean)
-            .join(" - ");
-
-        if (linhaEndereco1 || linhaEndereco2 || perfil.complemento) {
-            linhas.push("");
-            linhas.push("Entrega:");
-            if (linhaEndereco1) linhas.push(`- ${linhaEndereco1}`);
-            if (linhaEndereco2) linhas.push(`- ${linhaEndereco2}`);
-            if (perfil.complemento) linhas.push(`- ${perfil.complemento}`);
-        }
-
-        if (perfil.nome) {
-            linhas.push("");
-            linhas.push("Cliente:");
-            linhas.push(`- ${perfil.nome}`);
-        }
-
-        if (perfil.telefone) {
-            linhas.push("");
-            linhas.push("Contato:");
-            linhas.push(`- ${perfil.telefone}`);
-        }
-    }
-
-    // --- pagamento ---
-    linhas.push("");
-    linhas.push("Pagamento:");
-    linhas.push(`- ${pedido.pagamento || "Não informado"}`);
-
-    // --- total ---
-    linhas.push("");
-    linhas.push("Total:");
-    linhas.push(`- R$ ${(pedido.total || 0).toFixed(2).replace('.', ',')}`);
-
-    return linhas.join("\n");
 }
 
 function fmtBRL(n) { return Number(n || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
@@ -1058,11 +1177,22 @@ function montarDescricaoParaBackend(pedido, perfil) {
   linhas.push("Produtos:");
   itens.forEach(item => {
     const extrasValor = (item.extras || []).reduce((s,e)=> s + (e.preco * e.qtd), 0);
-    const totalItem = (item.precoBase * item.quantidade) + extrasValor;
-    const extrasTxt = (item.extras || []).filter(e=>e.qtd>0).map(e=>`${e.qtd}x ${e.nome}`).join(", ");
-    const extrasParte = extrasTxt ? ` | Extras: ${extrasTxt}` : "";
+    const totalItem = valorItem(item);
+    // opções agrupadas: "Escolha 4 sabores: 2x Nutella, 2x Red Velvet"
+    const porGrupo = {};
+    (item.extras || []).filter(e => e.qtd > 0).forEach(e => {
+      const g = e.grupo || "Adicionais";
+      (porGrupo[g] = porGrupo[g] || []).push(`${e.qtd}x ${e.nome}`);
+    });
+    const extrasParte = Object.entries(porGrupo).map(([g, itens]) => ` | ${g}: ${itens.join(", ")}`).join("");
     linhas.push(`- ${item.quantidade}x ${item.nome} (${fmtBRL(totalItem)})${extrasParte}`);
   });
+
+  // Encomenda
+  if (pedido.agendadoPara) {
+    const [dia, hora] = pedido.agendadoPara.split('T');
+    linhas.push("", `Encomenda para: ${dia.split('-').reverse().join('/')} às ${hora}`);
+  }
 
   // Entrega / Retirada
   if (pedido.tipoEntrega === 'RETIRADA') {
@@ -1110,7 +1240,8 @@ async function enviarPedidoParaBackend(pedido) {
     // enviar os itens e o servidor calcula o preço.
     const body = {
       descricao: descricao,
-      totalCentavos: Math.round((pedido.total || 0) * 100)
+      totalCentavos: Math.round((pedido.total || 0) * 100),
+      agendadoPara: pedido.agendadoPara || null
     };
 
     const resp = await fetch(`${API_LOJA}/pedidos`, {
@@ -1119,7 +1250,12 @@ async function enviarPedidoParaBackend(pedido) {
       body: JSON.stringify(body)
     });
 
-    if (!resp.ok) throw new Error(`Falha ao criar pedido: ${resp.status} ${await resp.text().catch(()=> '')}`);
+    if (!resp.ok) {
+      const erro = await resp.json().catch(() => null);
+      const falha = new Error(`Falha ao criar pedido: ${resp.status}`);
+      falha.mensagemUsuario = erro && erro.mensagem;
+      throw falha;
+    }
     return await resp.json(); // PedidoPublicoDto { codigo, status, totalCentavos, criadoEm }
   }
 
@@ -1147,6 +1283,13 @@ async function enviarPedidoParaBackend(pedido) {
       return;
     }
   
+    // Encomenda: data e horário
+    const agendadoPara = agendamentoEscolhido();
+    if (VITRINE_LOJA && VITRINE_LOJA.encomenda && VITRINE_LOJA.encomenda.exigeAgendamento && !agendadoPara) {
+      showActionFeedback && showActionFeedback("Escolha quando receber", "Selecione o dia e o horário da sua encomenda.");
+      return;
+    }
+
     // → tipo de entrega + obs do checkout
     const tipoEntrega = document.querySelector('input[name="tipoEntrega"]:checked')?.value || 'ENTREGA';
     const obs = document.querySelector('#observacoes')?.value?.trim() || "";
@@ -1155,7 +1298,7 @@ async function enviarPedidoParaBackend(pedido) {
     let subtotal = 0;
     cart.forEach(item => {
       const extrasValor = (item.extras || []).reduce((s,e)=> s + (e.preco * e.qtd), 0);
-      subtotal += (item.precoBase * item.quantidade) + extrasValor;
+      subtotal += valorItem(item);
     });
   
     // Taxa de entrega (0 para RETIRADA)
@@ -1172,6 +1315,7 @@ async function enviarPedidoParaBackend(pedido) {
         total,
         pagamento: metodoPagamento,
         tipoEntrega,
+        agendadoPara,
         obs,
         status: 'PENDENTE', // pode ser 'pendente' se preferir, o importante é a consistência
         dataIso: agora.toISOString(),
@@ -1204,7 +1348,9 @@ async function enviarPedidoParaBackend(pedido) {
         }
         } catch (e) {
         console.error(e);
-        showActionFeedback && showActionFeedback("Erro ao registrar pedido", "Tente novamente em instantes.");
+        // mensagens de regra (loja fechada, dia lotado...) vêm prontas do servidor
+        showActionFeedback && showActionFeedback("Não foi possível enviar o pedido", e.mensagemUsuario || "Tente novamente em instantes.");
+        if (e.mensagemUsuario) inicializarAgendamentoCheckout(); // atualiza dias lotados
         return;
         }
   

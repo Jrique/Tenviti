@@ -17,3 +17,6 @@ node_modules/
 *.env.local
 # arquivo gerado por ferramenta da IDE, não usado pelo projeto
 tunedata.iff
+
+# Imagens enviadas quando o servidor roda fora do Docker
+LDLanchesASW/server/midia/

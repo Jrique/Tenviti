@@ -128,13 +128,15 @@ fun TelaProdutos() {
                 ListaProdutosCards(
                     produtos = produtosFiltrados,
                     onDeleteRequest = { produtoParaDeletar = it },
-                    onEditRequest   = { produtoParaEditar = it }
+                    onEditRequest   = { produtoParaEditar = it },
+                    onPausarRequest = { p -> scope.launch { vm.alternarDisponivel(p) } },
                 )
             } else {
                 TabelaProdutos(
                     produtos = produtosFiltrados,
                     onDeleteRequest = { produtoParaDeletar = it },
-                    onEditRequest   = { produtoParaEditar = it }
+                    onEditRequest   = { produtoParaEditar = it },
+                    onPausarRequest = { p -> scope.launch { vm.alternarDisponivel(p) } },
                 )
             }
         }
@@ -150,7 +152,8 @@ fun TelaProdutos() {
                 scope.launch {
                     vm.criar(novo) { mostrarModalAdicionar = false }
                 }
-            }
+            },
+            onEnviarFoto = { arquivo -> vm.enviarFoto(arquivo) },
         )
     }
 
@@ -171,7 +174,8 @@ fun TelaProdutos() {
                     // opcional: sincronizar produto em edição com lista
                     produtoParaEditar = vm.produtos.firstOrNull { it.id == p.id }
                 }
-            }
+            },
+            onEnviarFoto = { arquivo -> vm.enviarFoto(arquivo) },
         )
     }
 

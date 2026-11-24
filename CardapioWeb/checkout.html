@@ -151,6 +151,22 @@
             </div>
         </section>
 
+        <!-- Encomenda: data e horário (só aparece se a loja aceita agendamento) -->
+        <section class="checkout-bloco" id="checkout-agendamento" hidden>
+            <h2 class="checkout-titulo-sessao">Quando você quer receber?</h2>
+            <div class="checkout-card agendamento-card">
+                <label class="agendamento-campo">
+                    <span>Dia</span>
+                    <select id="agendamento-dia"></select>
+                </label>
+                <label class="agendamento-campo">
+                    <span>Horário</span>
+                    <select id="agendamento-hora"></select>
+                </label>
+                <p class="agendamento-nota" id="agendamento-nota"></p>
+            </div>
+        </section>
+
         <!-- Itens -->
         <section class="checkout-bloco" id="checkout-itens">
             <h2 class="checkout-titulo-sessao">Itens do pedido</h2>
@@ -361,7 +377,7 @@
                     );
 
                     // total do item = produto base + extras
-                    const totalItem = (item.precoBase * item.quantidade) + totalExtrasItem;
+                    const totalItem = valorItem(item);
 
                     // linhas de adicionais (se tiver)
                     let extrasHtml = '';
@@ -404,7 +420,7 @@
                     (soma, extra) => soma + (extra.preco * extra.qtd),
                     0
                 );
-                subtotal += (item.precoBase * item.quantidade) + totalExtrasItem;
+                subtotal += valorItem(item);
             });
 
             // se taxaEntrega não existir, usa 0

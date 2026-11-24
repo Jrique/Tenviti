@@ -71,6 +71,7 @@ fun MenuLateral(
             Tela.CATEGORIAS to Icons.Default.Category,
             Tela.FATURAMENTO to Icons.Default.AttachMoney,
             Tela.VENDAS to Icons.Default.ShoppingCart,
+            Tela.DADOS_LOJA to Icons.Default.Storefront,
             Tela.APARENCIA to Icons.Default.Palette,
         )
         itens.filter { (tela, _) -> usuario != null && tela.visivelPara(usuario) }.forEach { (tela, icone) ->
