@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -27,15 +29,14 @@ fun TelaConfiguracoes() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF8F6))
+            .background(TenvitiTema.cores.fundo)
             .verticalScroll(scrollState)
-            .padding(if (isMobile) 16.dp else 18.dp)
+            .padding(horizontal = if (isMobile) 16.dp else 32.dp)
     ) {
         Text(
             text = "Configurações",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
-            fontSize = if (isMobile) 32.sp else 50.sp
         )
         Spacer(modifier = Modifier.height(24.dp))
         CardPerfil()

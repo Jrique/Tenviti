@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaCategorias
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -25,7 +27,7 @@ fun ModalGerenciarCategoria(
         Surface(
             modifier = Modifier.fillMaxWidth(0.9f).wrapContentHeight(),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFFFF8F6),
+            color = TenvitiTema.cores.fundo,
             tonalElevation = 6.dp
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
@@ -39,13 +41,13 @@ fun ModalGerenciarCategoria(
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("Cancelar", color = Color(0xFF790001)) }
+                    TextButton(onClick = onDismiss) { Text("Cancelar", color = TenvitiTema.cores.base) }
                     Button(
                         onClick = {
                             val novaCategoria = Categoria(id = categoria?.id ?: 0, nome = nome)
                             onSave(novaCategoria)
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF790001))
+                        colors = ButtonDefaults.buttonColors(containerColor = TenvitiTema.cores.base)
                     ) {
                         Text("Salvar")
                     }

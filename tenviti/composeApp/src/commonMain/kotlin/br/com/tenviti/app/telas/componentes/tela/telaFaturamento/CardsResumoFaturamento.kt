@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaFaturamento
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -59,13 +61,13 @@ private fun CartaoResumoComFiltro(
     Card(
         modifier = modifier,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE9E6))
+        colors = CardDefaults.cardColors(containerColor = TenvitiTema.cores.superficie)
     ) {
         Column(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(titulo, style = MaterialTheme.typography.titleMedium, color = Color.Gray)
+            Text(titulo, style = MaterialTheme.typography.titleMedium, color = TenvitiTema.cores.textoSuave)
             Spacer(modifier = Modifier.height(8.dp))
             Text(valor, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
@@ -74,10 +76,10 @@ private fun CartaoResumoComFiltro(
                 onClick = onClickFiltro,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF790001)
+                    contentColor = TenvitiTema.cores.base
                 ),
                 border = ButtonDefaults.outlinedButtonBorder().copy(
-                    brush = SolidColor(Color(0xFF790001))
+                    brush = SolidColor(TenvitiTema.cores.base)
                 )
             ) {
                 Text("Filtrar período")

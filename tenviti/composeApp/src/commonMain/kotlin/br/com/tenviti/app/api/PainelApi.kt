@@ -22,6 +22,7 @@ import br.com.tenviti.shared.SessaoDto
 import br.com.tenviti.shared.StatusPedido
 import br.com.tenviti.shared.TrocarSenhaRequisicao
 import br.com.tenviti.shared.UsuarioDto
+import br.com.tenviti.shared.VitrineLojaDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
@@ -160,6 +161,13 @@ class PainelApi(private val http: HttpClient, private val upload: HttpClient) {
 
     suspend fun alterarStatusPedido(id: Long, status: StatusPedido): PedidoDto =
         http.patch("$base/api/painel/pedidos/$id/status") { setBody(AlterarStatusDto(status)) }.body()
+
+    // ---------- Vitrine pública (o painel mostra se a loja está aberta agora) ----------
+
+    suspend fun vitrine(slug: String): VitrineLojaDto = http.get("$base/api/public/lojas/$slug").body()
+
+    /** Endereço da vitrine da loja para abrir no navegador ou copiar. */
+    fun enderecoVitrine(slug: String): String = "$base/$slug/"
 
     // ---------- Painel: dashboard ----------
 

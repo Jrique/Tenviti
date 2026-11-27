@@ -12,7 +12,7 @@ import br.com.tenviti.shared.GrupoOpcoesDto
 import br.com.tenviti.shared.InformacoesLojaDto
 import br.com.tenviti.shared.IntervaloHorarioDto
 import br.com.tenviti.shared.Modulo
-import br.com.tenviti.shared.NovoPedidoPublicoDto
+import br.com.tenviti.shared.ItemNovoPedidoDto
 import br.com.tenviti.shared.OpcaoDto
 import br.com.tenviti.shared.PedidoPublicoDto
 import br.com.tenviti.shared.ProdutoDto
@@ -48,11 +48,11 @@ class Fase1ApiTest : TesteDeApi() {
             setBody(info)
         }
 
-    private suspend fun HttpClient.pedir(slug: String, agendadoPara: String? = null): HttpResponse =
-        post("/api/public/lojas/$slug/pedidos") {
-            contentType(ContentType.Application.Json)
-            setBody(NovoPedidoPublicoDto("1x Cookie", 1200, agendadoPara))
-        }
+    /** Pede 1 unidade do primeiro produto da vitrine. */
+    private suspend fun HttpClient.pedir(slug: String, agendadoPara: String? = null): HttpResponse {
+        val produto = get("/api/public/lojas/$slug/produtos").body<List<ProdutoDto>>().first()
+        return pedirNaVitrine(slug, listOf(ItemNovoPedidoDto(produto.id)), agendadoPara = agendadoPara)
+    }
 
     private val todosOsDias = (1..7).map { IntervaloHorarioDto(it, "00:00", "23:59") }
 
@@ -149,6 +149,7 @@ class Fase1ApiTest : TesteDeApi() {
         val superToken = cliente.token(SUPER_EMAIL, SUPER_SENHA)
         cliente.criarLoja(superToken, "thai", "dono@thai.com")
         val dono = cliente.token("dono@thai.com", SENHA_DONO)
+        cliente.criarProduto(dono, "Cookie", 1200)
         assertEquals(HttpStatusCode.Created, cliente.pedir("thai").status)
 
         cliente.salvarInformacoes(dono, InformacoesLojaDto(funcionamento = FuncionamentoDto(pausada = true, mensagemPausa = "Voltamos segunda!")))
@@ -167,6 +168,7 @@ class Fase1ApiTest : TesteDeApi() {
         val superToken = cliente.token(SUPER_EMAIL, SUPER_SENHA)
         cliente.criarLoja(superToken, "ld-lanches", "dono@ld.com") // sem módulo AGENDAMENTO
         val dono = cliente.token("dono@ld.com", SENHA_DONO)
+        cliente.criarProduto(dono, "X-Tudo", 3290)
         cliente.salvarInformacoes(
             dono,
             InformacoesLojaDto(funcionamento = FuncionamentoDto(horarios = todosOsDias, encomenda = EncomendaConfigDto(aceitaAgendamento = true))),
@@ -181,6 +183,7 @@ class Fase1ApiTest : TesteDeApi() {
         val superToken = cliente.token(SUPER_EMAIL, SUPER_SENHA)
         cliente.criarLoja(superToken, "thai", "dono@thai.com", modulos = setOf(Modulo.RETIRADA, Modulo.AGENDAMENTO))
         val dono = cliente.token("dono@thai.com", SENHA_DONO)
+        cliente.criarProduto(dono, "Cookie", 1200)
         val r = cliente.salvarInformacoes(
             dono,
             InformacoesLojaDto(

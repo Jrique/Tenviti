@@ -2,28 +2,36 @@ package br.com.tenviti.server.infra.banco
 
 import br.com.tenviti.server.dominio.Aparencia
 import br.com.tenviti.server.dominio.Categoria
+import br.com.tenviti.server.dominio.ClientePedido
 import br.com.tenviti.server.dominio.ConfigEncomenda
+import br.com.tenviti.server.dominio.ConfigEntrega
 import br.com.tenviti.server.dominio.ContatoLoja
 import br.com.tenviti.server.dominio.Depoimento
 import br.com.tenviti.server.dominio.Endereco
 import br.com.tenviti.server.dominio.Funcionamento
 import br.com.tenviti.server.dominio.GrupoOpcoes
 import br.com.tenviti.server.dominio.IntervaloHorario
+import br.com.tenviti.server.dominio.ItemPedido
 import br.com.tenviti.server.dominio.Loja
 import br.com.tenviti.server.dominio.Opcao
+import br.com.tenviti.server.dominio.OpcaoDoItem
+import br.com.tenviti.server.dominio.Pagamento
 import br.com.tenviti.server.dominio.Pedido
 import br.com.tenviti.server.dominio.Produto
+import br.com.tenviti.server.dominio.Recebimento
 import br.com.tenviti.server.dominio.RepositorioCatalogo
 import br.com.tenviti.server.dominio.RepositorioDepoimentos
 import br.com.tenviti.server.dominio.RepositorioLojas
 import br.com.tenviti.server.dominio.RepositorioPedidos
 import br.com.tenviti.server.dominio.RepositorioUsuarios
 import br.com.tenviti.server.dominio.Usuario
+import br.com.tenviti.shared.FormaPagamento
 import br.com.tenviti.shared.ItemPersonalizavel
 import br.com.tenviti.shared.ModeloLayout
 import br.com.tenviti.shared.Modulo
 import br.com.tenviti.shared.Papel
 import br.com.tenviti.shared.StatusPedido
+import br.com.tenviti.shared.TipoEntrega
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -117,6 +125,8 @@ class RepositorioLojasExposed : RepositorioLojas {
         it[LojaTabela.diasMaximosAgendamento] = f.encomenda.diasMaximos
         it[LojaTabela.limitePedidosDia] = f.encomenda.limitePedidosPorDia
         it[LojaTabela.intervaloAgendamentoMinutos] = f.encomenda.intervaloMinutos
+        it[LojaTabela.taxaEntregaCentavos] = loja.entrega.taxaCentavos
+        it[LojaTabela.pedidoMinimoCentavos] = loja.entrega.pedidoMinimoCentavos
     }
 
     private fun ResultRow.paraLoja(): Loja {
@@ -171,6 +181,10 @@ class RepositorioLojasExposed : RepositorioLojas {
                     limitePedidosPorDia = this[LojaTabela.limitePedidosDia],
                     intervaloMinutos = this[LojaTabela.intervaloAgendamentoMinutos],
                 ),
+            ),
+            entrega = ConfigEntrega(
+                taxaCentavos = this[LojaTabela.taxaEntregaCentavos],
+                pedidoMinimoCentavos = this[LojaTabela.pedidoMinimoCentavos],
             ),
         )
     }
@@ -281,6 +295,13 @@ class RepositorioCatalogoExposed : RepositorioCatalogo {
             val base = ProdutoTabela.lojaId eq lojaId
             if (somenteAtivos) base and (ProdutoTabela.ativo eq true) else base
         }.orderBy(ProdutoTabela.nome).map { it.paraProduto(grupos[it[ProdutoTabela.id].value].orEmpty()) }
+    }
+
+    override fun buscarProdutos(lojaId: Long, ids: Set<Long>): List<Produto> {
+        if (ids.isEmpty()) return emptyList()
+        val grupos = gruposDaLoja(lojaId)
+        return ProdutoTabela.selectAll().where { (ProdutoTabela.lojaId eq lojaId) and (ProdutoTabela.id inList ids) }
+            .map { it.paraProduto(grupos[it[ProdutoTabela.id].value].orEmpty()) }
     }
 
     override fun buscarProduto(lojaId: Long, id: Long): Produto? {
@@ -443,21 +464,21 @@ class RepositorioDepoimentosExposed : RepositorioDepoimentos {
 class RepositorioPedidosExposed : RepositorioPedidos {
     override fun buscar(lojaId: Long, id: Long) =
         PedidoTabela.selectAll().where { (PedidoTabela.id eq id) and (PedidoTabela.lojaId eq lojaId) }
-            .singleOrNull()?.paraPedido()
+            .toList().paraPedidos(lojaId).singleOrNull()
 
     override fun buscarPorCodigo(lojaId: Long, codigo: String) =
         PedidoTabela.selectAll().where { (PedidoTabela.codigo eq codigo) and (PedidoTabela.lojaId eq lojaId) }
-            .singleOrNull()?.paraPedido()
+            .toList().paraPedidos(lojaId).singleOrNull()
 
     override fun existeCodigo(lojaId: Long, codigo: String) =
         PedidoTabela.selectAll().where { (PedidoTabela.codigo eq codigo) and (PedidoTabela.lojaId eq lojaId) }.any()
 
-    override fun listar(lojaId: Long, de: Instant, ate: Instant, limite: Int): List<Pedido> =
+    override fun listar(lojaId: Long, de: Instant, ate: Instant, limite: Int, comItens: Boolean): List<Pedido> =
         PedidoTabela.selectAll().where {
             (PedidoTabela.lojaId eq lojaId) and
                 (PedidoTabela.criadoEm greaterEq de.atOffset(ZoneOffset.UTC)) and
                 (PedidoTabela.criadoEm less ate.atOffset(ZoneOffset.UTC))
-        }.orderBy(PedidoTabela.criadoEm, SortOrder.DESC).limit(limite).map { it.paraPedido() }
+        }.orderBy(PedidoTabela.criadoEm, SortOrder.DESC).limit(limite).toList().paraPedidos(lojaId, comItens)
 
     override fun contarPorDia(lojaId: Long, de: LocalDate, ate: LocalDate): Map<LocalDate, Int> {
         val total = PedidoTabela.id.count()
@@ -475,40 +496,137 @@ class RepositorioPedidosExposed : RepositorioPedidos {
     }
 
     override fun salvar(pedido: Pedido): Pedido {
-        return if (pedido.id == 0L) {
-            val id = PedidoTabela.insertAndGetId {
-                it[lojaId] = pedido.lojaId
-                it[codigo] = pedido.codigo
-                it[descricao] = pedido.descricao
-                it[totalCentavos] = pedido.totalCentavos
-                it[status] = pedido.status.name
-                it[criadoEm] = pedido.criadoEm.atOffset(ZoneOffset.UTC)
-                it[atualizadoEm] = pedido.atualizadoEm.atOffset(ZoneOffset.UTC)
-                it[agendadoPara] = pedido.agendadoPara?.atOffset(ZoneOffset.UTC)
-                it[diaProducao] = pedido.diaProducao
-            }.value
-            buscar(pedido.lojaId, id)!!
-        } else {
+        if (pedido.id != 0L) {
+            // depois de criado, só o status muda (itens, cliente e valores ficam como foram pedidos)
             PedidoTabela.update({ (PedidoTabela.id eq pedido.id) and (PedidoTabela.lojaId eq pedido.lojaId) }) {
                 it[status] = pedido.status.name
                 it[atualizadoEm] = pedido.atualizadoEm.atOffset(ZoneOffset.UTC)
             }
-            pedido
+            return pedido
+        }
+        val e = pedido.recebimento?.endereco
+        val id = PedidoTabela.insertAndGetId {
+            it[lojaId] = pedido.lojaId
+            it[codigo] = pedido.codigo
+            it[descricao] = pedido.descricao
+            it[totalCentavos] = pedido.totalCentavos
+            it[status] = pedido.status.name
+            it[criadoEm] = pedido.criadoEm.atOffset(ZoneOffset.UTC)
+            it[atualizadoEm] = pedido.atualizadoEm.atOffset(ZoneOffset.UTC)
+            it[agendadoPara] = pedido.agendadoPara?.atOffset(ZoneOffset.UTC)
+            it[diaProducao] = pedido.diaProducao
+            it[clienteNome] = pedido.cliente?.nome
+            it[clienteTelefone] = pedido.cliente?.telefone
+            it[tipoEntrega] = pedido.recebimento?.tipo?.name
+            it[enderecoLogradouro] = e?.logradouro
+            it[enderecoNumero] = e?.numero
+            it[enderecoComplemento] = e?.complemento
+            it[enderecoBairro] = e?.bairro
+            it[enderecoCidade] = e?.cidade
+            it[enderecoUf] = e?.uf
+            it[enderecoCep] = e?.cep
+            it[taxaEntregaCentavos] = pedido.taxaEntregaCentavos
+            it[formaPagamento] = pedido.pagamento?.forma?.name
+            it[trocoParaCentavos] = pedido.pagamento?.trocoParaCentavos
+            it[observacao] = pedido.observacao
+        }.value
+        pedido.itens.forEachIndexed { i, item ->
+            val novoItemId = PedidoItemTabela.insertAndGetId {
+                it[lojaId] = pedido.lojaId
+                it[pedidoId] = id
+                it[produtoId] = item.produtoId
+                it[nome] = item.nome
+                it[quantidade] = item.quantidade
+                it[precoUnitarioCentavos] = item.precoUnitarioCentavos
+                it[observacao] = item.observacao
+                it[ordem] = i
+            }.value
+            item.opcoes.forEachIndexed { j, o ->
+                PedidoItemOpcaoTabela.insert {
+                    it[lojaId] = pedido.lojaId
+                    it[itemId] = novoItemId
+                    it[grupo] = o.grupo
+                    it[nome] = o.nome
+                    it[precoCentavos] = o.precoCentavos
+                    it[quantidade] = o.quantidade
+                    it[ordem] = j
+                }
+            }
+        }
+        return buscar(pedido.lojaId, id)!!
+    }
+
+    /** Converte as linhas em pedidos, carregando os itens de todos de uma vez (2 consultas, não 1 por pedido). */
+    private fun List<ResultRow>.paraPedidos(lojaId: Long, comItens: Boolean = true): List<Pedido> {
+        val itens = if (comItens && isNotEmpty()) itensDosPedidos(lojaId, map { it[PedidoTabela.id].value }) else emptyMap()
+        return map { it.paraPedido(itens[it[PedidoTabela.id].value].orEmpty()) }
+    }
+
+    private fun itensDosPedidos(lojaId: Long, pedidoIds: List<Long>): Map<Long, List<ItemPedido>> {
+        val linhasItem = PedidoItemTabela.selectAll()
+            .where { (PedidoItemTabela.lojaId eq lojaId) and (PedidoItemTabela.pedidoId inList pedidoIds) }
+            .orderBy(PedidoItemTabela.ordem).toList()
+        if (linhasItem.isEmpty()) return emptyMap()
+        val itemIds = linhasItem.map { it[PedidoItemTabela.id].value }
+        val opcoesPorItem = PedidoItemOpcaoTabela.selectAll()
+            .where { (PedidoItemOpcaoTabela.lojaId eq lojaId) and (PedidoItemOpcaoTabela.itemId inList itemIds) }
+            .orderBy(PedidoItemOpcaoTabela.ordem)
+            .groupBy({ it[PedidoItemOpcaoTabela.itemId] }) {
+                OpcaoDoItem(
+                    it[PedidoItemOpcaoTabela.grupo],
+                    it[PedidoItemOpcaoTabela.nome],
+                    it[PedidoItemOpcaoTabela.precoCentavos],
+                    it[PedidoItemOpcaoTabela.quantidade],
+                )
+            }
+        return linhasItem.groupBy({ it[PedidoItemTabela.pedidoId] }) {
+            ItemPedido(
+                produtoId = it[PedidoItemTabela.produtoId],
+                nome = it[PedidoItemTabela.nome],
+                quantidade = it[PedidoItemTabela.quantidade],
+                precoUnitarioCentavos = it[PedidoItemTabela.precoUnitarioCentavos],
+                opcoes = opcoesPorItem[it[PedidoItemTabela.id].value].orEmpty(),
+                observacao = it[PedidoItemTabela.observacao],
+            )
         }
     }
 
-    private fun ResultRow.paraPedido() = Pedido(
-        id = this[PedidoTabela.id].value,
-        lojaId = this[PedidoTabela.lojaId],
-        codigo = this[PedidoTabela.codigo],
-        descricao = this[PedidoTabela.descricao],
-        totalCentavos = this[PedidoTabela.totalCentavos],
-        status = StatusPedido.valueOf(this[PedidoTabela.status]),
-        criadoEm = this[PedidoTabela.criadoEm].toInstant(),
-        atualizadoEm = this[PedidoTabela.atualizadoEm].toInstant(),
-        agendadoPara = this[PedidoTabela.agendadoPara]?.toInstant(),
-        diaProducao = this[PedidoTabela.diaProducao],
-    )
+    private fun ResultRow.paraPedido(itens: List<ItemPedido>): Pedido {
+        val tipo = this[PedidoTabela.tipoEntrega]?.let { nome -> TipoEntrega.entries.find { it.name == nome } }
+        val endereco = if (tipo == TipoEntrega.ENTREGA) {
+            Endereco(
+                logradouro = this[PedidoTabela.enderecoLogradouro].orEmpty(),
+                numero = this[PedidoTabela.enderecoNumero].orEmpty(),
+                complemento = this[PedidoTabela.enderecoComplemento],
+                bairro = this[PedidoTabela.enderecoBairro].orEmpty(),
+                cidade = this[PedidoTabela.enderecoCidade].orEmpty(),
+                uf = this[PedidoTabela.enderecoUf].orEmpty(),
+                cep = this[PedidoTabela.enderecoCep].orEmpty(),
+            )
+        } else {
+            null
+        }
+        val nomeCliente = this[PedidoTabela.clienteNome]
+        val telefone = this[PedidoTabela.clienteTelefone]
+        val forma = this[PedidoTabela.formaPagamento]?.let { nome -> FormaPagamento.entries.find { it.name == nome } }
+        return Pedido(
+            id = this[PedidoTabela.id].value,
+            lojaId = this[PedidoTabela.lojaId],
+            codigo = this[PedidoTabela.codigo],
+            descricao = this[PedidoTabela.descricao],
+            totalCentavos = this[PedidoTabela.totalCentavos],
+            status = StatusPedido.valueOf(this[PedidoTabela.status]),
+            criadoEm = this[PedidoTabela.criadoEm].toInstant(),
+            atualizadoEm = this[PedidoTabela.atualizadoEm].toInstant(),
+            agendadoPara = this[PedidoTabela.agendadoPara]?.toInstant(),
+            diaProducao = this[PedidoTabela.diaProducao],
+            itens = itens,
+            cliente = if (nomeCliente != null && telefone != null) ClientePedido(nomeCliente, telefone) else null,
+            recebimento = tipo?.let { Recebimento(it, endereco, this[PedidoTabela.taxaEntregaCentavos]) },
+            pagamento = forma?.let { Pagamento(it, this[PedidoTabela.trocoParaCentavos]) },
+            observacao = this[PedidoTabela.observacao],
+        )
+    }
 }
 
 private inline fun <reified E : Enum<E>> enumOuPadrao(valor: String, padrao: E): E =

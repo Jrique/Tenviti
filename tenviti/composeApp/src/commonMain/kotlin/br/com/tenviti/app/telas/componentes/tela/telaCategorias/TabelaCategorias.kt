@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaCategorias
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,22 +35,22 @@ fun TabelaCategorias(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE9E6)),
+        colors = CardDefaults.cardColors(containerColor = TenvitiTema.cores.superficie),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Cabeçalho da Tabela
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Text("ID", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Color.Gray, textAlign = TextAlign.Center)
-                Text("Nome da Categoria", modifier = Modifier.weight(3f), fontWeight = FontWeight.Bold, color = Color.Gray, textAlign = TextAlign.Center)
-                Text("Ações", modifier = Modifier.weight(1.5f), fontWeight = FontWeight.Bold, color = Color.Gray, textAlign = TextAlign.Center)
+                Text("ID", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, color = TenvitiTema.cores.textoSuave, textAlign = TextAlign.Center)
+                Text("Nome da Categoria", modifier = Modifier.weight(3f), fontWeight = FontWeight.Bold, color = TenvitiTema.cores.textoSuave, textAlign = TextAlign.Center)
+                Text("Ações", modifier = Modifier.weight(1.5f), fontWeight = FontWeight.Bold, color = TenvitiTema.cores.textoSuave, textAlign = TextAlign.Center)
             }
-            HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+            HorizontalDivider(color = TenvitiTema.cores.textoSuave.copy(alpha = 0.3f))
 
             // Linhas da Tabela
             if (categorias.isEmpty()) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp)) {
-                    Text("Nenhuma categoria encontrada.", color = Color.Gray)
+                    Text("Nenhuma categoria encontrada.", color = TenvitiTema.cores.textoSuave)
                 }
             } else {
                 categorias.forEach { categoria ->
@@ -57,14 +59,14 @@ fun TabelaCategorias(
                         Text(categoria.nome, modifier = Modifier.weight(3f), fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                         Row(modifier = Modifier.weight(1.5f), horizontalArrangement = Arrangement.Center) {
                             IconButton(onClick = { onEditClick(categoria) }) {
-                                Icon(Icons.Default.Edit, "Editar", tint = Color(0xFF790001))
+                                Icon(Icons.Default.Edit, "Editar", tint = TenvitiTema.cores.base)
                             }
                             IconButton(onClick = { onDeleteClick(categoria) }) {
-                                Icon(Icons.Default.Delete, "Excluir", tint = Color(0xFF790001))
+                                Icon(Icons.Default.Delete, "Excluir", tint = TenvitiTema.cores.base)
                             }
                         }
                     }
-                    HorizontalDivider(color = Color.Gray.copy(alpha = 0.1f))
+                    HorizontalDivider(color = TenvitiTema.cores.textoSuave.copy(alpha = 0.1f))
                 }
             }
         }

@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaFaturamento
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -9,7 +11,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import br.com.tenviti.app.data.ResumoDashboard
-import br.com.tenviti.app.telas.GraficoFaturamento
+import br.com.tenviti.app.ui.componentesUi.GraficoFaturamento
 
 @Composable
 fun CardGraficoFaturamento(
@@ -22,7 +24,7 @@ fun CardGraficoFaturamento(
     Card(
         modifier = Modifier.fillMaxWidth().heightIn(min = 450.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE9E6))
+        colors = CardDefaults.cardColors(containerColor = TenvitiTema.cores.superficie)
     ) {
         Column(
             modifier = Modifier.padding(16.dp).fillMaxWidth()
@@ -36,7 +38,7 @@ fun CardGraficoFaturamento(
 
             if (listaFaturamento.isEmpty()) {
                 Box(Modifier.fillMaxWidth().height(300.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                    Text("Sem dados para o período", color = Color.Gray)
+                    Text("Sem dados para o período", color = TenvitiTema.cores.textoSuave)
                 }
             } else {
                 GraficoFaturamento(
@@ -53,10 +55,10 @@ fun CardGraficoFaturamento(
                 onClick = onFiltrarClick,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF790001)
+                    contentColor = TenvitiTema.cores.base
                 ),
                 border = ButtonDefaults.outlinedButtonBorder().copy(
-                    brush = SolidColor(Color(0xFF790001))
+                    brush = SolidColor(TenvitiTema.cores.base)
                 )
             ) {
                 Text("Filtrar período")

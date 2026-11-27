@@ -1,5 +1,7 @@
 package br.com.tenviti.app.ui.componentesUi
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
@@ -26,7 +28,7 @@ fun GraficoFaturamentoDesktopUI(
     val valores = if(dados.isEmpty()) listOf(0f,0f,0f,0f,0f,0f,0f) else dados.map { it.toFloat() }
     val dias = labels.ifEmpty { listOf("","","","","","","") }
 
-    val corDaBarra = Color(0xFF790001)
+    val corDaBarra = TenvitiTema.cores.base
     val corDaGrade = Color.LightGray.copy(alpha = 0.5f)
 
     val maxValorBruto = valores.maxOrNull() ?: 0f
@@ -46,7 +48,7 @@ fun GraficoFaturamentoDesktopUI(
                     Text(
                         text = "R$ ${valor.toInt()}",
                         fontSize = 10.sp,
-                        color = Color.Gray,
+                        color = TenvitiTema.cores.textoSuave,
                         modifier = Modifier.padding(end = 8.dp)
                     )
                 }
@@ -94,7 +96,7 @@ fun GraficoFaturamentoDesktopUI(
             Row(modifier = Modifier.fillMaxWidth()) {
                 dias.forEach { dia ->
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Text(text = dia, fontSize = 12.sp, color = Color.Gray)
+                        Text(text = dia, fontSize = 12.sp, color = TenvitiTema.cores.textoSuave)
                     }
                 }
             }
@@ -112,7 +114,7 @@ fun GraficoVendasDesktopUI(
     val valores = if(dados.isEmpty()) listOf(0f,0f,0f,0f,0f,0f,0f) else dados.map { it.toFloat() }
     val dias = if(labels.isEmpty()) listOf("","","","","","","") else labels
 
-    val corDaLinha = Color(0xFF0D47A1)
+    val corDaLinha = TenvitiTema.cores.info.texto
     val corDaArea = corDaLinha.copy(alpha = 0.2f)
     val corDaGrade = Color.LightGray.copy(alpha = 0.5f)
 
@@ -132,7 +134,7 @@ fun GraficoVendasDesktopUI(
                     Text(
                         text = "${valor.toInt()}",
                         fontSize = 10.sp,
-                        color = Color.Gray,
+                        color = TenvitiTema.cores.textoSuave,
                         modifier = Modifier.padding(end = 8.dp)
                     )
                 }
@@ -194,7 +196,7 @@ fun GraficoVendasDesktopUI(
             Row(modifier = Modifier.fillMaxWidth()) {
                 dias.forEach { dia ->
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Text(text = dia, fontSize = 12.sp, color = Color.Gray)
+                        Text(text = dia, fontSize = 12.sp, color = TenvitiTema.cores.textoSuave)
                     }
                 }
             }

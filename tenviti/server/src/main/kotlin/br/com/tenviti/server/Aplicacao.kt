@@ -105,7 +105,7 @@ fun Application.modulo(config: Configuracao) {
         lojas = ServicoLojas(tx, repoLojas, repoUsuarios, senhas),
         usuarios = ServicoUsuarios(tx, repoUsuarios, senhas),
         catalogo = ServicoCatalogo(tx, repoCatalogo),
-        pedidos = ServicoPedidos(tx, repoPedidos),
+        pedidos = ServicoPedidos(tx, repoPedidos, repoCatalogo),
         depoimentos = ServicoDepoimentos(tx, repoDepoimentos),
         arquivos = ServicoArquivos(armazenamento),
     )

@@ -47,6 +47,10 @@ object LojaTabela : LongIdTable("loja") {
     val diasMaximosAgendamento = integer("dias_maximos_agendamento")
     val limitePedidosDia = integer("limite_pedidos_dia").nullable()
     val intervaloAgendamentoMinutos = integer("intervalo_agendamento_minutos")
+
+    // entrega
+    val taxaEntregaCentavos = long("taxa_entrega_centavos")
+    val pedidoMinimoCentavos = long("pedido_minimo_centavos")
 }
 
 object HorarioFuncionamentoTabela : LongIdTable("horario_funcionamento") {
@@ -112,6 +116,43 @@ object PedidoTabela : LongIdTable("pedido") {
     val atualizadoEm = timestampWithTimeZone("atualizado_em")
     val agendadoPara = timestampWithTimeZone("agendado_para").nullable()
     val diaProducao = date("dia_producao")
+
+    // pedidos da vitrine a partir da Fase 2 (nulos nos antigos)
+    val clienteNome = varchar("cliente_nome", 80).nullable()
+    val clienteTelefone = varchar("cliente_telefone", 13).nullable()
+    val tipoEntrega = varchar("tipo_entrega", 20).nullable()
+    val enderecoLogradouro = varchar("endereco_logradouro", 150).nullable()
+    val enderecoNumero = varchar("endereco_numero", 20).nullable()
+    val enderecoComplemento = varchar("endereco_complemento", 100).nullable()
+    val enderecoBairro = varchar("endereco_bairro", 80).nullable()
+    val enderecoCidade = varchar("endereco_cidade", 80).nullable()
+    val enderecoUf = varchar("endereco_uf", 2).nullable()
+    val enderecoCep = varchar("endereco_cep", 8).nullable()
+    val taxaEntregaCentavos = long("taxa_entrega_centavos")
+    val formaPagamento = varchar("forma_pagamento", 20).nullable()
+    val trocoParaCentavos = long("troco_para_centavos").nullable()
+    val observacao = varchar("observacao", 500).nullable()
+}
+
+object PedidoItemTabela : LongIdTable("pedido_item") {
+    val lojaId = long("loja_id")
+    val pedidoId = long("pedido_id")
+    val produtoId = long("produto_id").nullable()
+    val nome = varchar("nome", 120)
+    val quantidade = integer("quantidade")
+    val precoUnitarioCentavos = long("preco_unitario_centavos")
+    val observacao = varchar("observacao", 200).nullable()
+    val ordem = integer("ordem")
+}
+
+object PedidoItemOpcaoTabela : LongIdTable("pedido_item_opcao") {
+    val lojaId = long("loja_id")
+    val itemId = long("item_id")
+    val grupo = varchar("grupo", 80)
+    val nome = varchar("nome", 80)
+    val precoCentavos = long("preco_centavos")
+    val quantidade = integer("quantidade")
+    val ordem = integer("ordem")
 }
 
 object DepoimentoTabela : LongIdTable("depoimento") {

@@ -12,7 +12,7 @@ import br.com.tenviti.shared.ItemPersonalizavel
 import br.com.tenviti.shared.LoginRequisicao
 import br.com.tenviti.shared.LojaDto
 import br.com.tenviti.shared.NovaLojaDto
-import br.com.tenviti.shared.NovoPedidoPublicoDto
+import br.com.tenviti.shared.ItemNovoPedidoDto
 import br.com.tenviti.shared.NovoUsuarioDto
 import br.com.tenviti.shared.Papel
 import br.com.tenviti.shared.PedidoDto
@@ -281,10 +281,8 @@ class ApiTest : TesteDeApi() {
         val vitrine = cliente.get("/api/public/lojas/ld-lanches").body<VitrineLojaDto>()
         assertEquals("Loja ld-lanches", vitrine.nome)
 
-        val criado = cliente.post("/api/public/lojas/ld-lanches/pedidos") {
-            contentType(ContentType.Application.Json)
-            setBody(NovoPedidoPublicoDto("1x X-Tudo", 3500))
-        }
+        val xTudo = cliente.criarProduto(donoToken, "X-Tudo", 3500).body<ProdutoDto>()
+        val criado = cliente.pedirNaVitrine("ld-lanches", listOf(ItemNovoPedidoDto(xTudo.id)))
         assertEquals(HttpStatusCode.Created, criado.status, criado.bodyAsText())
         val publico = criado.body<PedidoPublicoDto>()
         assertEquals(StatusPedido.NOVO, publico.status)

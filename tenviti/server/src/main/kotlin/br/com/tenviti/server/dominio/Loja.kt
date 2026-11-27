@@ -4,6 +4,8 @@ import br.com.tenviti.shared.Formatos
 import br.com.tenviti.shared.ItemPersonalizavel
 import br.com.tenviti.shared.ModeloLayout
 import br.com.tenviti.shared.Modulo
+import br.com.tenviti.shared.TipoEntrega
+import br.com.tenviti.shared.emReais
 import java.time.ZoneId
 
 /** Identidade visual da loja. Valida os próprios campos na criação. */
@@ -48,6 +50,14 @@ data class Aparencia(
     }
 }
 
+/** Taxa de entrega fixa e pedido mínimo (centavos; 0 = sem taxa / sem mínimo). */
+data class ConfigEntrega(val taxaCentavos: Long = 0, val pedidoMinimoCentavos: Long = 0) {
+    init {
+        exigir(taxaCentavos in 0..100_000) { "A taxa de entrega deve ficar entre R$ 0,00 e ${100_000L.emReais()}." }
+        exigir(pedidoMinimoCentavos in 0..1_000_000) { "O pedido mínimo deve ficar entre R$ 0,00 e ${1_000_000L.emReais()}." }
+    }
+}
+
 /**
  * Loja (tenant). Cada loja tem seu cardápio, usuários, pedidos e personalização.
  * O super admin configura tudo; o dono só altera os itens de aparência que foram liberados para ele.
@@ -63,6 +73,7 @@ class Loja(
     personalizacaoLiberada: Set<ItemPersonalizavel>,
     contato: ContatoLoja = ContatoLoja(),
     funcionamento: Funcionamento = Funcionamento(),
+    entrega: ConfigEntrega = ConfigEntrega(),
 ) {
     var slug: String = slug; private set
     var nome: String = nome; private set
@@ -73,6 +84,7 @@ class Loja(
     var personalizacaoLiberada: Set<ItemPersonalizavel> = personalizacaoLiberada; private set
     var contato: ContatoLoja = contato; private set
     var funcionamento: Funcionamento = funcionamento; private set
+    var entrega: ConfigEntrega = entrega; private set
 
     init {
         validarSlug(slug)
@@ -119,10 +131,34 @@ class Loja(
 
     fun visivelAoPublico(): Boolean = ativa
 
-    /** Dono/gerente atualizam contato, endereço, horários e regras de encomenda. */
-    fun atualizarInformacoes(contato: ContatoLoja, funcionamento: Funcionamento) {
+    /** Dono/gerente atualizam contato, endereço, horários, regras de encomenda e entrega. */
+    fun atualizarInformacoes(contato: ContatoLoja, funcionamento: Funcionamento, entrega: ConfigEntrega = this.entrega) {
         this.contato = contato
         this.funcionamento = funcionamento
+        this.entrega = entrega
+    }
+
+    /**
+     * Como o cliente vai receber o pedido: a forma precisa estar ligada (módulos ENTREGA/RETIRADA)
+     * e a entrega exige endereço completo. A taxa é a da loja.
+     */
+    fun receber(tipo: TipoEntrega, endereco: Endereco?): Recebimento {
+        val modulo = when (tipo) {
+            TipoEntrega.ENTREGA -> Modulo.ENTREGA
+            TipoEntrega.RETIRADA -> Modulo.RETIRADA
+        }
+        if (modulo !in modulos) {
+            throw DadoInvalido("Esta loja não faz ${tipo.rotulo.lowercase()}. Escolha outra forma de receber.", "forma_de_entrega_indisponivel")
+        }
+        return when (tipo) {
+            TipoEntrega.RETIRADA -> Recebimento(tipo, null, 0)
+            TipoEntrega.ENTREGA -> {
+                exigir(endereco != null && endereco.completoParaEntrega) {
+                    "Informe o endereço de entrega completo (rua, número, bairro e cidade)."
+                }
+                Recebimento(tipo, endereco, entrega.taxaCentavos)
+            }
+        }
     }
 
     /**

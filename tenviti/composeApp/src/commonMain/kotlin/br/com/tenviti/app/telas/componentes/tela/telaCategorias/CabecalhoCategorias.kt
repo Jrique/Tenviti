@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaCategorias
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,7 +34,7 @@ fun CabecalhoCategorias(
             } else {
                 Modifier.width(250.dp).height(150.dp) // Um pouco mais largo para o texto
             },
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE9E6)),
+            colors = CardDefaults.cardColors(containerColor = TenvitiTema.cores.superficie),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             shape = RoundedCornerShape(if (isMobile) 16.dp else 24.dp)
         ) {
@@ -44,14 +46,14 @@ fun CabecalhoCategorias(
                     Text(
                         text = if (isMobile) "Categorias Cadastradas" else "Categorias\nCadastradas",
                         textAlign = TextAlign.Center,
-                        color = Color.Black,
+                        color = TenvitiTema.cores.texto,
                         fontSize = if (isMobile) 14.sp else 18.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(if (isMobile) 4.dp else 8.dp))
                     Text(
                         text = totalCategorias.toString(),
-                        color = Color.Black,
+                        color = TenvitiTema.cores.texto,
                         fontSize = if (isMobile) 36.sp else 48.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -65,7 +67,7 @@ fun CabecalhoCategorias(
         if (isMobile) {
             FloatingActionButton(
                 onClick = onAdicionarClick,
-                containerColor = Color(0xFF790001),
+                containerColor = TenvitiTema.cores.base,
                 contentColor = Color.White
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Adicionar")
@@ -73,7 +75,7 @@ fun CabecalhoCategorias(
         } else {
             Button(
                 onClick = onAdicionarClick,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF790001))
+                colors = ButtonDefaults.buttonColors(containerColor = TenvitiTema.cores.base)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Adicionar", tint = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))

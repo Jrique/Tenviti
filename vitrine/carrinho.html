@@ -252,7 +252,7 @@
             return acc + valorItem(item);
         }, 0);
 
-        const entrega = typeof taxaEntrega !== 'undefined' ? taxaEntrega : 5.00;
+        const entrega = taxaEntregaEmReais('ENTREGA'); // estimativa: na retirada não há taxa
         const total = subtotal + entrega;
 
         summaryContainer.innerHTML = `
@@ -280,6 +280,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             renderCarrinho();
+            VITRINE_PRONTA.then(renderCarrinho); // taxa de entrega vem da loja
             configurarBotaoWhatsFlutuante();
             atualizarStatusLoja();
             configurarBotaoHeaderEntrega();

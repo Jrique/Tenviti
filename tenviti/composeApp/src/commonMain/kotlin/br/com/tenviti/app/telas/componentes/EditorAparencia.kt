@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -86,7 +88,7 @@ private fun Secao(titulo: String, habilitado: Boolean, conteudo: @Composable Col
             Text(titulo, fontWeight = FontWeight.Bold)
             if (!habilitado) {
                 Spacer(Modifier.width(8.dp))
-                Text("(bloqueado — fale com o suporte)", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text("(bloqueado — fale com o suporte)", style = MaterialTheme.typography.bodySmall, color = TenvitiTema.cores.textoSuave)
             }
         }
         conteudo(habilitado)

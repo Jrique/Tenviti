@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaProdutos
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -16,24 +18,24 @@ fun ModalInfo(titulo: String, conteudo: String, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Fechar", color = Color(0xFF790001), fontWeight = FontWeight.Bold)
+                Text("Fechar", color = TenvitiTema.cores.base, fontWeight = FontWeight.Bold)
             }
         },
         title = {
             Text(
                 titulo,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF790001)
+                color = TenvitiTema.cores.base
             )
         },
         text = {
             Text(
                 text = conteudo,
-                color = Color.Black,
+                color = TenvitiTema.cores.texto,
                 fontSize = 16.sp
             )
         },
-        containerColor = Color.White,
+        containerColor = TenvitiTema.cores.superficie,
         tonalElevation = 6.dp,
         shape = RoundedCornerShape(16.dp)
     )

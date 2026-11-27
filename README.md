@@ -79,6 +79,18 @@ cd tenviti
   passar a contar unidades.
 - **Imagens** enviadas ficam em `MIDIA_DIR` (volume `midia` no Docker) e são servidas em `/midia/...`.
 
+## Pedidos (Fase 2)
+
+- A vitrine manda só **ids e quantidades** (produto, opções escolhidas). Nome e preço de cada item
+  vêm do catálogo, e o **total é calculado no servidor**: promoção, opções pagas, taxa de entrega.
+- O produto confere as próprias regras (disponível, opções que existem, mínimo/máximo de cada grupo,
+  repetição). A loja decide a forma de receber (módulos ENTREGA/RETIRADA), cobra a **taxa de entrega
+  fixa** e exige o **pedido mínimo** (ambos em "Loja e horários" no painel).
+- O pedido guarda uma "foto" dos itens: se o preço mudar depois, o pedido continua com o valor da compra.
+- Se o total mudou enquanto o cliente montava a sacola, o pedido é recusado (`total_alterado`) para
+  ele conferir o novo valor.
+- Pedidos antigos (só texto) continuam aparecendo no painel.
+
 ## Rodando os testes
 
 Os testes do servidor são de integração e usam um PostgreSQL real (banco `tenviti_teste`, criado
@@ -110,11 +122,12 @@ Erros sempre voltam como `{"mensagem": "...", "codigo": "..."}` com a mensagem p
   limite de pedidos por dia, contato/endereço/Instagram e depoimentos.
 - [ ] **Fase 2 — Tenviti**:
   - [x] Bloco 1: nome Tenviti em todo o projeto, lojas de exemplo recriáveis
-  - [ ] Bloco 2: pedido com itens estruturados e preço calculado no servidor, dados do cliente,
+  - [x] Bloco 2: pedido com itens estruturados e preço calculado no servidor, dados do cliente,
     taxa de entrega fixa e pedido mínimo
   - [ ] Bloco 3: serviços com hora marcada (duração, horários livres, agendamento)
   - [ ] Bloco 4: convite, planos (Básico/Pró) e 1º mês grátis, cobrança manual
-  - [ ] Bloco 5: painel com a identidade Tenviti (paleta acolhedora, modo escuro, tela "Hoje")
+  - [x] Bloco 5: painel com a identidade Tenviti (petróleo e coral, modo escuro, tela "Hoje", pedidos em quadro,
+    catálogo em cartões, menu lateral no computador e inferior no celular)
   - [ ] Bloco 6: página do Tenviti
   - [ ] Bloco 7: vitrine nova (mobile-first, mantendo as cores de cada loja)
 - [ ] **Fase 3 — Mercado Pago**: Pix e cartão, webhooks, estorno, cobrança automática das lojas;

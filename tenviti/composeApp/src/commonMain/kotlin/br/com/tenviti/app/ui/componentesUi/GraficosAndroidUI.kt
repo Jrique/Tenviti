@@ -1,5 +1,7 @@
 package br.com.tenviti.app.ui.componentesUi
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -27,7 +29,7 @@ fun GraficoFaturamentoAndroidUI(
     val valores = if(dados.isEmpty()) listOf(0f) else dados.map { it.toFloat() }
     val dias = labels.ifEmpty { listOf("") }
 
-    val corDaBarra = Color(0xFF790001)
+    val corDaBarra = TenvitiTema.cores.base
     val corDaGrade = Color.LightGray.copy(alpha = 0.5f)
     val larguraBarra = 40.dp
     val espacamentoEntreBarras = 20.dp
@@ -48,7 +50,7 @@ fun GraficoFaturamentoAndroidUI(
                     Text(
                         text = "R$ ${valor.toInt()}",
                         fontSize = 10.sp,
-                        color = Color.Gray,
+                        color = TenvitiTema.cores.textoSuave,
                         modifier = Modifier.padding(end = 8.dp)
                     )
                 }
@@ -100,7 +102,7 @@ fun GraficoFaturamentoAndroidUI(
             ) {
                 dias.forEach { dia ->
                     Box(modifier = Modifier.width(larguraBarra + espacamentoEntreBarras), contentAlignment = Alignment.Center) {
-                        Text(text = dia, fontSize = 12.sp, color = Color.Gray)
+                        Text(text = dia, fontSize = 12.sp, color = TenvitiTema.cores.textoSuave)
                     }
                 }
             }
@@ -118,7 +120,7 @@ fun GraficoVendasAndroidUI(
     val valores = if(dados.isEmpty()) listOf(0f) else dados.map { it.toFloat() }
     val dias = labels.ifEmpty { listOf("") }
 
-    val corDaLinha = Color(0xFF0D47A1)
+    val corDaLinha = TenvitiTema.cores.info.texto
     val corDaArea = corDaLinha.copy(alpha = 0.2f)
     val corDaGrade = Color.LightGray.copy(alpha = 0.5f)
     val larguraSlot = 60.dp
@@ -141,7 +143,7 @@ fun GraficoVendasAndroidUI(
                     Text(
                         text = "${valor.toInt()}",
                         fontSize = 10.sp,
-                        color = Color.Gray,
+                        color = TenvitiTema.cores.textoSuave,
                         modifier = Modifier.padding(end = 8.dp)
                     )
                 }
@@ -206,7 +208,7 @@ fun GraficoVendasAndroidUI(
             Row(modifier = Modifier.width(larguraSlot * dias.size)) {
                 dias.forEach { dia ->
                     Box(modifier = Modifier.width(larguraSlot), contentAlignment = Alignment.Center) {
-                        Text(text = dia, fontSize = 12.sp, color = Color.Gray)
+                        Text(text = dia, fontSize = 12.sp, color = TenvitiTema.cores.textoSuave)
                     }
                 }
             }

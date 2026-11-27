@@ -172,3 +172,20 @@ html[data-tema="claro"] .hero-btn { background: var(--cor-primaria-start); color
 /* Sem banner próprio a faixa usa a foto escura padrão: texto continua claro */
 html[data-tema="claro"] .hero-banner:not(.hero-com-banner) h2 { color: #FFFFFF; }
 html[data-tema="claro"] .hero-banner:not(.hero-com-banner) p { color: rgba(255, 255, 255, 0.85); }
+
+/* Troco (pagamento em dinheiro): mesmo estilo das opções de pagamento */
+#campo-troco {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 12px 14px; border-radius: 10px;
+    border: 1px dashed var(--cor-borda, #3a3a3a);
+}
+#campo-troco[hidden] { display: none; }
+#campo-troco span { font-size: 0.85rem; color: var(--cor-texto-sec, #bbb); }
+#troco-para {
+    width: 100%; box-sizing: border-box;
+    padding: 12px 14px; font: inherit; font-size: 1rem;
+    border-radius: var(--radius-botao, 10px);
+    border: 1px solid var(--cor-borda, #3a3a3a);
+    background: var(--cor-superficie-2, #2a2a2a); color: var(--cor-texto, #fff);
+}
+#troco-para:focus { outline: 2px solid var(--cor-primaria-start); outline-offset: 1px; }

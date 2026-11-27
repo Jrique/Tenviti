@@ -7,6 +7,7 @@ import br.com.tenviti.shared.ContatoLojaDto
 import br.com.tenviti.shared.DepoimentoDto
 import br.com.tenviti.shared.EncomendaConfigDto
 import br.com.tenviti.shared.EnderecoDto
+import br.com.tenviti.shared.EntregaConfigDto
 import br.com.tenviti.shared.FuncionamentoDto
 import br.com.tenviti.shared.GrupoOpcoesDto
 import br.com.tenviti.shared.InformacoesLojaDto
@@ -86,6 +87,7 @@ class DadosDeExemplo(
                     intervaloMinutos = 60,
                 ),
             ),
+            entrega = EntregaConfigDto(taxaCentavos = 1000, pedidoMinimoCentavos = 3000),
         ))
 
         val classicos = catalogo.criarCategoria(donoDaLoja, SalvarCategoriaDto("Cookies clássicos", 0)).id
@@ -151,6 +153,7 @@ class DadosDeExemplo(
             ),
         ))
         val donoDaLoja = Ator(usuarioId = 0, papel = Papel.DONO, lojaId = loja.id)
+        lojas.atualizarInformacoes(donoDaLoja, InformacoesLojaDto(entrega = EntregaConfigDto(taxaCentavos = 500)))
 
         val lanches = catalogo.criarCategoria(donoDaLoja, SalvarCategoriaDto("Lanches", 0)).id
         val bebidas = catalogo.criarCategoria(donoDaLoja, SalvarCategoriaDto("Bebidas", 1)).id

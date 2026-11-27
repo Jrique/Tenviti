@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -41,7 +43,7 @@ fun TelaAparencia() {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(Color(0xFFFFF8F6)).verticalScroll(rememberScrollState()).padding(18.dp),
+        modifier = Modifier.fillMaxSize().background(TenvitiTema.cores.fundo).verticalScroll(rememberScrollState()).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("Aparência da loja", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
@@ -49,11 +51,11 @@ fun TelaAparencia() {
         val atual = loja
         val ap = aparencia
         if (atual == null || ap == null) {
-            if (mensagem == null) CircularProgressIndicator(color = Color(0xFF790001)) else Text(mensagem!!, color = Color(0xFF790001))
+            if (mensagem == null) CircularProgressIndicator(color = TenvitiTema.cores.base) else Text(mensagem!!, color = TenvitiTema.cores.base)
             return@Column
         }
 
-        Text("Seu cardápio online: ${apiBaseUrl()}/${atual.slug}/", color = Color.Gray)
+        Text("Seu cardápio online: ${apiBaseUrl()}/${atual.slug}/", color = TenvitiTema.cores.textoSuave)
 
         // Envio de logo e banner (o endereço entra no campo correspondente)
         var enviando by remember { mutableStateOf(false) }
@@ -76,16 +78,16 @@ fun TelaAparencia() {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = escolherLogo, enabled = !enviando && ItemPersonalizavel.LOGO in atual.personalizacaoLiberada) { Text("Enviar logo") }
             OutlinedButton(onClick = escolherBanner, enabled = !enviando && ItemPersonalizavel.BANNERS_E_TEXTOS in atual.personalizacaoLiberada) { Text("Enviar banner") }
-            if (enviando) CircularProgressIndicator(color = Color(0xFF790001), modifier = Modifier.size(24.dp))
+            if (enviando) CircularProgressIndicator(color = TenvitiTema.cores.base, modifier = Modifier.size(24.dp))
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE9E6))) {
+        Card(colors = CardDefaults.cardColors(containerColor = TenvitiTema.cores.superficie)) {
             Column(Modifier.padding(16.dp)) {
                 EditorAparencia(ap, liberado = { it in atual.personalizacaoLiberada }, onChange = { aparencia = it })
             }
         }
 
-        mensagem?.let { Text(it, color = Color(0xFF790001)) }
+        mensagem?.let { Text(it, color = TenvitiTema.cores.base) }
 
         Button(
             onClick = {
@@ -103,7 +105,7 @@ fun TelaAparencia() {
                 }
             },
             enabled = !salvando,
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF790001)),
+            colors = ButtonDefaults.buttonColors(containerColor = TenvitiTema.cores.base),
         ) { Text(if (salvando) "Salvando..." else "Salvar aparência") }
     }
 }

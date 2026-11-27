@@ -1,11 +1,16 @@
 package br.com.tenviti.server.aplicacao
 
 import br.com.tenviti.server.dominio.Ator
+import br.com.tenviti.server.dominio.ClientePedido
+import br.com.tenviti.server.dominio.Conflito
 import br.com.tenviti.server.dominio.DadoInvalido
+import br.com.tenviti.server.dominio.EscolhaDeOpcao
 import br.com.tenviti.server.dominio.GeradorCodigoPedido
 import br.com.tenviti.server.dominio.Loja
 import br.com.tenviti.server.dominio.NaoEncontrado
+import br.com.tenviti.server.dominio.Pagamento
 import br.com.tenviti.server.dominio.Pedido
+import br.com.tenviti.server.dominio.RepositorioCatalogo
 import br.com.tenviti.server.dominio.RepositorioPedidos
 import br.com.tenviti.server.dominio.Transacoes
 import br.com.tenviti.shared.AlterarStatusDto
@@ -26,12 +31,17 @@ import java.util.Locale
 class ServicoPedidos(
     private val tx: Transacoes,
     private val pedidos: RepositorioPedidos,
+    private val catalogo: RepositorioCatalogo,
     private val relogio: () -> Instant = Instant::now,
 ) {
     private val quemAtende = arrayOf(Papel.DONO, Papel.GERENTE, Papel.ATENDENTE, Papel.COZINHA)
 
     // ---------- Público (cardápio) ----------
 
+    /**
+     * Pedido feito pela vitrine. O navegador só manda ids e quantidades: nomes e preços vêm do catálogo,
+     * e quem decide se o pedido pode entrar (loja aberta, forma de entrega, mínimo, limite do dia) é o domínio.
+     */
     suspend fun criarDaVitrine(loja: Loja, req: NovoPedidoPublicoDto): PedidoPublicoDto {
         val agendadoPara = req.agendadoPara?.let { texto ->
             try {
@@ -40,15 +50,43 @@ class ServicoPedidos(
                 throw DadoInvalido("Data da encomenda inválida.")
             }
         }
+        val cliente = ClientePedido(req.cliente.nome, req.cliente.telefone.filter { it.isDigit() })
+        val pagamento = Pagamento(req.formaPagamento, req.trocoParaCentavos)
+        val recebimento = loja.receber(req.tipoEntrega, req.endereco?.paraDominio())
+        if (req.itens.size > Pedido.MAXIMO_ITENS) throw DadoInvalido("O pedido pode ter no máximo ${Pedido.MAXIMO_ITENS} itens diferentes.")
+
         return tx.executar {
+            // Buscar
             val agora = relogio().atZone(loja.zona)
-            // Trabalhar: a loja decide se aceita o pedido agora / no horário escolhido e em qual dia ele conta
+            val produtos = catalogo.buscarProdutos(loja.id, req.itens.map { it.produtoId }.toSet()).associateBy { it.id }
+
+            // Trabalhar: cada produto monta o próprio item (preço e regras de opções)
+            val itens = req.itens.map { item ->
+                val produto = produtos[item.produtoId]
+                    ?: throw Conflito("Um dos produtos da sacola não existe mais. Tire-o da sacola para continuar.", "produto_indisponivel")
+                produto.montarItem(item.quantidade, item.opcoes.map { EscolhaDeOpcao(it.opcaoId, it.quantidade) }, item.observacao)
+            }
+            // a loja decide se aceita o pedido agora / no horário escolhido e em qual dia ele conta
             val diaPrevisto = agendadoPara?.toLocalDate() ?: agora.toLocalDate()
             pedidos.travarDia(loja.id, diaPrevisto) // evita estourar o limite com pedidos simultâneos
             val janela = loja.funcionamentoEfetivo.validarNovoPedido(agora, agendadoPara) { dia ->
                 pedidos.contarPorDia(loja.id, dia, dia)[dia] ?: 0
             }
-            val pedido = Pedido.novoDaVitrine(loja.id, gerarCodigoUnico(loja.id), req.descricao, req.totalCentavos, janela, agora.toInstant())
+            val pedido = Pedido.novoDaVitrine(
+                lojaId = loja.id,
+                codigo = gerarCodigoUnico(loja.id),
+                itens = itens,
+                cliente = cliente,
+                recebimento = recebimento,
+                pagamento = pagamento,
+                observacao = req.observacao,
+                pedidoMinimoCentavos = loja.entrega.pedidoMinimoCentavos,
+                janela = janela,
+                agora = agora.toInstant(),
+            )
+            pedido.conferirTotalVisto(req.totalEsperadoCentavos)
+
+            // Persistir
             pedidos.salvar(pedido).paraPublico()
         }
     }
@@ -105,7 +143,7 @@ class ServicoPedidos(
         if (de.plusDays(366).isBefore(ate)) throw DadoInvalido("O período máximo é de 1 ano.")
 
         val lista = tx.executar {
-            pedidos.listar(loja.id, inicioDoDia(de, loja), inicioDoDia(ate.plusDays(1), loja), Int.MAX_VALUE)
+            pedidos.listar(loja.id, inicioDoDia(de, loja), inicioDoDia(ate.plusDays(1), loja), Int.MAX_VALUE, comItens = false)
         }.filter { it.status != StatusPedido.CANCELADO }
 
         val porDia = lista.groupBy { it.criadoEm.atZone(loja.zona).toLocalDate() }

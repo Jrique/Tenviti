@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -26,8 +28,8 @@ fun TelaFaturamento() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF8F6))
-            .padding(if (isMobile) 16.dp else 18.dp)
+            .background(TenvitiTema.cores.fundo)
+            .padding(horizontal = if (isMobile) 16.dp else 32.dp)
             .verticalScroll(scrollState)
     ) {
         // Cabeçalho com filtros pré-definidos (Hoje, Semanal, Mensal)

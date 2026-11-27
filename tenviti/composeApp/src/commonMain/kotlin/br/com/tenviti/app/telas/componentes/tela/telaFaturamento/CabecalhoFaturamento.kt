@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaFaturamento
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,7 +31,6 @@ fun CabecalhoFaturamento(
         text = "Faturamento",
         style = MaterialTheme.typography.headlineLarge,
         fontWeight = FontWeight.Bold,
-        fontSize = if (isMobile) 32.sp else 50.sp
     )
     Spacer(modifier = Modifier.height(24.dp))
 
@@ -42,13 +43,13 @@ fun CabecalhoFaturamento(
 
 @Composable
 private fun BotaoFiltroGlobal(texto: String, selecionado: Boolean, onClick: () -> Unit) {
-    val cores = if (selecionado) ButtonDefaults.buttonColors(containerColor = Color(0xFF790001))
+    val cores = if (selecionado) ButtonDefaults.buttonColors(containerColor = TenvitiTema.cores.base)
     else ButtonDefaults.outlinedButtonColors()
 
     val borda = if(selecionado) null else ButtonDefaults.outlinedButtonBorder().copy(
-        brush = SolidColor(Color(0xFF790001))
+        brush = SolidColor(TenvitiTema.cores.base)
     )
-    val corTexto = if (selecionado) Color.White else Color(0xFF790001)
+    val corTexto = if (selecionado) Color.White else TenvitiTema.cores.base
 
     Button(
         onClick = onClick,

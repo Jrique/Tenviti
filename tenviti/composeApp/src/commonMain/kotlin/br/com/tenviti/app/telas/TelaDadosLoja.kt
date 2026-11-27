@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,14 +24,17 @@ import br.com.tenviti.shared.ContatoLojaDto
 import br.com.tenviti.shared.DepoimentoDto
 import br.com.tenviti.shared.EncomendaConfigDto
 import br.com.tenviti.shared.EnderecoDto
+import br.com.tenviti.shared.EntregaConfigDto
+import br.com.tenviti.shared.emReais
+import br.com.tenviti.app.telas.componentes.tela.telaProdutos.CampoDinheiro
 import br.com.tenviti.shared.FuncionamentoDto
 import br.com.tenviti.shared.InformacoesLojaDto
 import br.com.tenviti.shared.IntervaloHorarioDto
 import br.com.tenviti.shared.Modulo
 import kotlinx.coroutines.launch
 
-private val Vinho = Color(0xFF790001)
-private val Fundo = Color(0xFFFFE9E6)
+private val Vinho: Color @Composable get() = TenvitiTema.cores.base
+private val Fundo: Color @Composable get() = TenvitiTema.cores.superficie
 private val NOMES_DIAS = listOf("", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo")
 
 /** Dados operacionais da loja: contato, endereço, horários, pausa, encomendas e depoimentos (dono e gerente). */
@@ -53,7 +58,7 @@ fun TelaDadosLoja() {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(Color(0xFFFFF8F6)).verticalScroll(rememberScrollState()).padding(18.dp),
+        modifier = Modifier.fillMaxSize().background(TenvitiTema.cores.fundo).verticalScroll(rememberScrollState()).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("Loja e horários", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
@@ -111,20 +116,20 @@ fun TelaDadosLoja() {
             Text("Horários", fontWeight = FontWeight.Bold)
             Text(
                 "Sem horários cadastrados a loja fica sempre aberta. Fechamento antes da abertura = vira a noite (ex.: 18:00 às 02:00).",
-                style = MaterialTheme.typography.bodySmall, color = Color.Gray,
+                style = MaterialTheme.typography.bodySmall, color = TenvitiTema.cores.textoSuave,
             )
             (1..7).forEach { dia ->
                 val doDia = func.horarios.filter { it.diaSemana == dia }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(NOMES_DIAS[dia], modifier = Modifier.width(80.dp))
-                    if (doDia.isEmpty()) Text("Fechado", color = Color.Gray, modifier = Modifier.weight(1f))
+                    if (doDia.isEmpty()) Text("Fechado", color = TenvitiTema.cores.textoSuave, modifier = Modifier.weight(1f))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         doDia.forEach { h ->
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 CampoHora("Abre", h.abre) { novo -> mudar(func.copy(horarios = func.horarios.map { if (it === h) h.copy(abre = novo) else it })) }
                                 CampoHora("Fecha", h.fecha) { novo -> mudar(func.copy(horarios = func.horarios.map { if (it === h) h.copy(fecha = novo) else it })) }
                                 IconButton(onClick = { mudar(func.copy(horarios = func.horarios.filterNot { it === h })) }) {
-                                    Icon(Icons.Default.Close, "Remover horário", tint = Color.Gray)
+                                    Icon(Icons.Default.Close, "Remover horário", tint = TenvitiTema.cores.textoSuave)
                                 }
                             }
                         }
@@ -173,10 +178,34 @@ fun TelaDadosLoja() {
                     CampoNumero("Intervalo entre horários (min)", enc.intervaloMinutos, Modifier.weight(1f)) { mudar(enc.copy(intervaloMinutos = it ?: 30)) }
                 }
                 Text(
-                    "Os horários oferecidos ao cliente seguem o funcionamento acima. O limite por dia conta pedidos (por unidade virá com os pedidos estruturados).",
-                    style = MaterialTheme.typography.bodySmall, color = Color.Gray,
+                    "Os horários oferecidos ao cliente seguem o funcionamento acima. O limite por dia conta pedidos.",
+                    style = MaterialTheme.typography.bodySmall, color = TenvitiTema.cores.textoSuave,
                 )
             }
+        }
+
+        Secao("Entrega e pedido mínimo") {
+            val entrega = atual.entrega
+            fun mudar(e: EntregaConfigDto) = atualizar(atual.copy(entrega = e))
+            if (Modulo.ENTREGA !in modulos) {
+                Text("A entrega não está ligada para sua loja (só retirada). Fale com o suporte para liberar.", color = Vinho)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                CampoDinheiro("Taxa de entrega (R$)", entrega.taxaCentavos, Modifier.weight(1f)) {
+                    mudar(entrega.copy(taxaCentavos = it ?: 0))
+                }
+                CampoDinheiro("Pedido mínimo (R$)", entrega.pedidoMinimoCentavos, Modifier.weight(1f)) {
+                    mudar(entrega.copy(pedidoMinimoCentavos = it ?: 0))
+                }
+            }
+            Text(
+                buildString {
+                    append(if (entrega.taxaCentavos > 0) "Entrega custa ${entrega.taxaCentavos.emReais()}. " else "Entrega grátis. ")
+                    append("Retirada não tem taxa. ")
+                    append(if (entrega.pedidoMinimoCentavos > 0) "Pedidos abaixo de ${entrega.pedidoMinimoCentavos.emReais()} não são aceitos." else "Sem pedido mínimo.")
+                },
+                style = MaterialTheme.typography.bodySmall, color = TenvitiTema.cores.textoSuave,
+            )
         }
 
         mensagem?.let { Text(it, color = Vinho) }
@@ -220,7 +249,7 @@ private fun SecaoDepoimentos() {
 
     Secao("Depoimentos de clientes (aparecem no cardápio)") {
         lista.forEach { d ->
-            Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+            Card(colors = CardDefaults.cardColors(containerColor = TenvitiTema.cores.superficie)) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -277,7 +306,7 @@ private fun Estrelas(nota: Int, tamanho: androidx.compose.ui.unit.Dp, aoEscolher
             Icon(
                 if (n <= nota) Icons.Filled.Star else Icons.Outlined.StarBorder,
                 contentDescription = if (aoEscolher != null) "Nota $n" else null,
-                tint = Color(0xFFF5B301),
+                tint = TenvitiTema.cores.aviso.cheia,
                 modifier = Modifier.size(tamanho).let { m -> if (aoEscolher != null) m.clickable { aoEscolher(n) } else m },
             )
         }

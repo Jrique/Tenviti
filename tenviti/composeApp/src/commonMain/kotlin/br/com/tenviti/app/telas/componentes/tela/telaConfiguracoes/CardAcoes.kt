@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaConfiguracoes
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Groups
@@ -23,15 +25,15 @@ fun CardAcoes(
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE9E6))
+        colors = CardDefaults.cardColors(containerColor = TenvitiTema.cores.superficie)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Ações", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = Color.Gray.copy(alpha = 0.2f))
+            HorizontalDivider(color = TenvitiTema.cores.textoSuave.copy(alpha = 0.2f))
             BotaoAcao(texto = "Alterar minha senha", icone = Icons.Default.LockReset, onClick = onAlterarSenhaClick)
             if (mostrarEquipe) {
-                HorizontalDivider(color = Color.Gray.copy(alpha = 0.1f), modifier = Modifier.padding(horizontal = 16.dp))
+                HorizontalDivider(color = TenvitiTema.cores.textoSuave.copy(alpha = 0.1f), modifier = Modifier.padding(horizontal = 16.dp))
                 BotaoAcao(texto = "Equipe da loja", icone = Icons.Default.Groups, onClick = onEquipeClick)
             }
         }
@@ -46,9 +48,9 @@ private fun BotaoAcao(texto: String, icone: ImageVector, onClick: () -> Unit) {
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Icon(icone, contentDescription = null, tint = Color(0xFF790001))
+            Icon(icone, contentDescription = null, tint = TenvitiTema.cores.base)
             Spacer(modifier = Modifier.width(16.dp))
-            Text(texto, color = Color.Black, fontSize = 16.sp)
+            Text(texto, color = TenvitiTema.cores.texto, fontSize = 16.sp)
         }
     }
 }

@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -35,7 +37,7 @@ import br.com.tenviti.shared.Modulo
 import br.com.tenviti.shared.NovaLojaDto
 import kotlinx.coroutines.launch
 
-private val Vinho = Color(0xFF790001)
+private val Vinho: Color @Composable get() = TenvitiTema.cores.base
 
 /** Painel do super admin: cadastra lojas, liga módulos e define o que cada dono pode personalizar. */
 @Composable
@@ -63,7 +65,7 @@ fun TelaLojas(onLogout: () -> Unit) {
     }
     LaunchedEffect(Unit) { recarregar() }
 
-    Column(Modifier.fillMaxSize().background(Color(0xFFFFF8F6)).padding(18.dp)) {
+    Column(Modifier.fillMaxSize().background(TenvitiTema.cores.fundo).padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text("Lojas", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Button(onClick = { criando = true }, colors = ButtonDefaults.buttonColors(containerColor = Vinho)) {
@@ -80,7 +82,7 @@ fun TelaLojas(onLogout: () -> Unit) {
         if (carregando) {
             CircularProgressIndicator(color = Vinho)
         } else if (lojas.isEmpty()) {
-            Text("Nenhuma loja cadastrada ainda. Clique em \"Nova loja\".", color = Color.Gray)
+            Text("Nenhuma loja cadastrada ainda. Clique em \"Nova loja\".", color = TenvitiTema.cores.textoSuave)
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(lojas, key = { it.id }) { loja -> CartaoLoja(loja) { editando = loja } }
@@ -128,14 +130,14 @@ fun TelaLojas(onLogout: () -> Unit) {
 private fun CartaoLoja(loja: LojaDto, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE9E6)),
+        colors = CardDefaults.cardColors(containerColor = TenvitiTema.cores.superficie),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(36.dp).background(corDoHex(loja.aparencia.corPrimaria) ?: Vinho, RoundedCornerShape(8.dp)))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(loja.nome, fontWeight = FontWeight.Bold)
-                Text("${apiBaseUrl()}/${loja.slug}/", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text("${apiBaseUrl()}/${loja.slug}/", style = MaterialTheme.typography.bodySmall, color = TenvitiTema.cores.textoSuave)
                 Text(loja.modulos.joinToString { it.rotulo }, style = MaterialTheme.typography.bodySmall)
             }
             AssistChip(onClick = onClick, label = { Text(if (loja.ativa) "Ativa" else "Desativada") })
@@ -215,7 +217,7 @@ private fun DialogEditarLoja(loja: LojaDto, onDismiss: () -> Unit, onSalvar: (At
         Surface(
             modifier = Modifier.fillMaxWidth(0.95f).widthIn(max = 900.dp).fillMaxHeight(0.9f),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFFFF8F6),
+            color = TenvitiTema.cores.fundo,
         ) {
             Column(Modifier.padding(24.dp)) {
                 Text("Editar ${loja.nome}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)

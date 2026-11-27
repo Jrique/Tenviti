@@ -3,6 +3,7 @@ package br.com.tenviti.server.aplicacao
 import br.com.tenviti.server.dominio.Aparencia
 import br.com.tenviti.server.dominio.Categoria
 import br.com.tenviti.server.dominio.ConfigEncomenda
+import br.com.tenviti.server.dominio.ConfigEntrega
 import br.com.tenviti.server.dominio.ContatoLoja
 import br.com.tenviti.server.dominio.DadoInvalido
 import br.com.tenviti.server.dominio.Depoimento
@@ -11,22 +12,27 @@ import br.com.tenviti.server.dominio.Endereco
 import br.com.tenviti.server.dominio.Funcionamento
 import br.com.tenviti.server.dominio.GrupoOpcoes
 import br.com.tenviti.server.dominio.IntervaloHorario
+import br.com.tenviti.server.dominio.ItemPedido
 import br.com.tenviti.server.dominio.Loja
 import br.com.tenviti.server.dominio.Opcao
 import br.com.tenviti.server.dominio.Pedido
 import br.com.tenviti.server.dominio.Produto
 import br.com.tenviti.server.dominio.Usuario
 import br.com.tenviti.shared.AparenciaDto
+import br.com.tenviti.shared.ClientePedidoDto
 import br.com.tenviti.shared.CategoriaDto
 import br.com.tenviti.shared.ContatoLojaDto
 import br.com.tenviti.shared.DepoimentoDto
 import br.com.tenviti.shared.DiaAgendaDto
 import br.com.tenviti.shared.EncomendaConfigDto
 import br.com.tenviti.shared.EnderecoDto
+import br.com.tenviti.shared.EntregaConfigDto
 import br.com.tenviti.shared.FuncionamentoDto
 import br.com.tenviti.shared.GrupoOpcoesDto
 import br.com.tenviti.shared.InformacoesLojaDto
 import br.com.tenviti.shared.IntervaloHorarioDto
+import br.com.tenviti.shared.ItemPedidoDto
+import br.com.tenviti.shared.OpcaoDoItemDto
 import br.com.tenviti.shared.LojaDto
 import br.com.tenviti.shared.OpcaoDto
 import br.com.tenviti.shared.PedidoDto
@@ -72,6 +78,7 @@ fun Loja.paraVitrine(agora: ZonedDateTime): VitrineLojaDto {
         contato = contato.paraDto(),
         horarios = f.horarios.map { it.paraDto() },
         encomenda = f.encomenda.paraDto(),
+        entrega = entrega.paraDto(),
         aberta = f.estaAberta(agora),
         pausada = f.pausada,
         mensagemPausa = f.mensagemPausa,
@@ -80,11 +87,26 @@ fun Loja.paraVitrine(agora: ZonedDateTime): VitrineLojaDto {
 
 // ---------- Informações da loja ----------
 
-fun Loja.paraInformacoesDto() = InformacoesLojaDto(contato.paraDto(), funcionamento.paraDto())
+fun Loja.paraInformacoesDto() = InformacoesLojaDto(contato.paraDto(), funcionamento.paraDto(), entrega.paraDto())
 
-fun ContatoLoja.paraDto() = ContatoLojaDto(telefone, instagram, endereco?.let {
-    EnderecoDto(it.logradouro, it.numero, it.complemento, it.bairro, it.cidade, it.uf, it.cep)
-})
+fun ConfigEntrega.paraDto() = EntregaConfigDto(taxaCentavos, pedidoMinimoCentavos)
+
+fun EntregaConfigDto.paraDominio() = ConfigEntrega(taxaCentavos, pedidoMinimoCentavos)
+
+fun ContatoLoja.paraDto() = ContatoLojaDto(telefone, instagram, endereco?.paraDto())
+
+fun Endereco.paraDto() = EnderecoDto(logradouro, numero, complemento, bairro, cidade, uf, cep)
+
+/** Normaliza o que veio do formulário: espaços, UF em maiúsculas, CEP só com números. */
+fun EnderecoDto.paraDominio() = Endereco(
+    logradouro = logradouro.trim(),
+    numero = numero.trim(),
+    complemento = complemento?.trim()?.ifEmpty { null },
+    bairro = bairro.trim(),
+    cidade = cidade.trim(),
+    uf = uf.trim().uppercase(),
+    cep = cep.filter { c -> c.isDigit() },
+)
 
 fun Funcionamento.paraDto() = FuncionamentoDto(pausada, mensagemPausa, horarios.map { it.paraDto() }, encomenda.paraDto())
 
@@ -96,17 +118,7 @@ fun ConfigEncomenda.paraDto() =
 fun ContatoLojaDto.paraDominio() = ContatoLoja(
     telefone = telefone?.filter { it.isDigit() }?.ifEmpty { null },
     instagram = instagram?.trim()?.removePrefix("@")?.ifEmpty { null },
-    endereco = endereco?.let {
-        Endereco(
-            logradouro = it.logradouro.trim(),
-            numero = it.numero.trim(),
-            complemento = it.complemento?.trim()?.ifEmpty { null },
-            bairro = it.bairro.trim(),
-            cidade = it.cidade.trim(),
-            uf = it.uf.trim().uppercase(),
-            cep = it.cep.filter { c -> c.isDigit() },
-        )
-    }?.takeUnless { it.vazio },
+    endereco = endereco?.paraDominio()?.takeUnless { it.vazio },
 )
 
 fun FuncionamentoDto.paraDominio() = Funcionamento(
@@ -175,6 +187,45 @@ fun Depoimento.paraDto() = DepoimentoDto(id, autor, texto, nota, ativo, ordem)
 
 // ---------- Pedidos ----------
 
-fun Pedido.paraDto() = PedidoDto(id, codigo, descricao, totalCentavos, status, criadoEm.toString(), agendadoPara?.toString())
+fun ItemPedido.paraDto() = ItemPedidoDto(
+    produtoId = produtoId,
+    nome = nome,
+    quantidade = quantidade,
+    precoUnitarioCentavos = precoUnitarioCentavos,
+    opcoes = opcoes.map { OpcaoDoItemDto(it.grupo, it.nome, it.precoCentavos, it.quantidade) },
+    observacao = observacao,
+    totalCentavos = totalCentavos,
+)
 
-fun Pedido.paraPublico() = PedidoPublicoDto(codigo, status, totalCentavos, criadoEm.toString(), agendadoPara?.toString())
+fun Pedido.paraDto() = PedidoDto(
+    id = id,
+    codigo = codigo,
+    descricao = descricao,
+    totalCentavos = totalCentavos,
+    status = status,
+    criadoEm = criadoEm.toString(),
+    agendadoPara = agendadoPara?.toString(),
+    itens = itens.map { it.paraDto() },
+    cliente = cliente?.let { ClientePedidoDto(it.nome, it.telefone) },
+    tipoEntrega = recebimento?.tipo,
+    endereco = recebimento?.endereco?.paraDto(),
+    formaPagamento = pagamento?.forma,
+    trocoParaCentavos = pagamento?.trocoParaCentavos,
+    observacao = observacao,
+    subtotalCentavos = subtotalCentavos,
+    taxaEntregaCentavos = taxaEntregaCentavos,
+)
+
+/** O cliente vê itens e valores, mas não os dados pessoais (quem tem o código não vê nome/telefone/endereço). */
+fun Pedido.paraPublico() = PedidoPublicoDto(
+    codigo = codigo,
+    status = status,
+    totalCentavos = totalCentavos,
+    criadoEm = criadoEm.toString(),
+    agendadoPara = agendadoPara?.toString(),
+    itens = itens.map { it.paraDto() },
+    subtotalCentavos = subtotalCentavos,
+    taxaEntregaCentavos = taxaEntregaCentavos,
+    tipoEntrega = recebimento?.tipo,
+    formaPagamento = pagamento?.forma,
+)

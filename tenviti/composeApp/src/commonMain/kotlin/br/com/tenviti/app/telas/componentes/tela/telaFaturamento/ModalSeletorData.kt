@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaFaturamento
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -47,14 +49,14 @@ fun ModalSeletorData(
                 .fillMaxWidth(0.8f)
                 .fillMaxHeight(0.8f),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFFFF8F6),
+            color = TenvitiTema.cores.fundo,
             tonalElevation = 6.dp
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     "Selecione o Período",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFF790001),
+                    color = TenvitiTema.cores.base,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
@@ -62,8 +64,8 @@ fun ModalSeletorData(
                     state = datePickerState,
                     modifier = Modifier.weight(1f),
                     colors = DatePickerDefaults.colors(
-                        selectedDayContainerColor = Color(0xFF790001),
-                        todayDateBorderColor = Color(0xFF790001),
+                        selectedDayContainerColor = TenvitiTema.cores.base,
+                        todayDateBorderColor = TenvitiTema.cores.base,
                         dayContentColor = Color.Black
                     ),
                     title = {},
@@ -75,7 +77,7 @@ fun ModalSeletorData(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancelar", color = Color(0xFF790001))
+                        Text("Cancelar", color = TenvitiTema.cores.base)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -89,7 +91,7 @@ fun ModalSeletorData(
                                 onConfirm(inicioStr, fimStr)
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF790001)),
+                        colors = ButtonDefaults.buttonColors(containerColor = TenvitiTema.cores.base),
                         enabled = datePickerState.selectedStartDateMillis != null &&
                                 datePickerState.selectedEndDateMillis != null
                     ) {

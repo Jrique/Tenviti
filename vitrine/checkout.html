@@ -181,7 +181,7 @@
 
             <div class="checkout-card pagamento-opcoes">
                 <label class="pagamento-opcao-linha">
-                    <input type="radio" name="pagamento" value="Pix" />
+                    <input type="radio" name="pagamento" value="PIX" />
                     <span class="pagamento-opcao-texto">
                         Pix
                         <small>Transferência instantânea</small>
@@ -189,7 +189,7 @@
                 </label>
 
                 <label class="pagamento-opcao-linha">
-                    <input type="radio" name="pagamento" value="Cartão na entrega" />
+                    <input type="radio" name="pagamento" value="CARTAO" />
                     <span class="pagamento-opcao-texto">
                         Cartão na entrega
                         <small>Maquininha débito / crédito</small>
@@ -197,11 +197,16 @@
                 </label>
 
                 <label class="pagamento-opcao-linha">
-                    <input type="radio" name="pagamento" value="Dinheiro" />
+                    <input type="radio" name="pagamento" value="DINHEIRO" />
                     <span class="pagamento-opcao-texto">
                         Dinheiro
                         <small>Levar troco se precisar</small>
                     </span>
+                </label>
+
+                <label id="campo-troco" hidden>
+                    <span>Troco para quanto? (opcional)</span>
+                    <input type="text" id="troco-para" inputmode="decimal" placeholder="R$ 50,00" />
                 </label>
             </div>
         </section>
@@ -222,6 +227,7 @@
                     <span>Total</span>
                     <span id="checkout-total">R$ 0,00</span>
                 </div>
+                <p class="agendamento-nota" id="checkout-minimo"></p>
             </div>
         </section>
 
@@ -309,6 +315,26 @@
     </div>
     
         <!-- MODAL: ACOMPANHAR PEDIDO PELO WHATSAPP -->
+    <div id="modal-msg" class="modal-overlay">
+        <div class="modal-card">
+            <button class="modal-close" id="modal-msg-close-btn">✕</button>
+
+            <div class="modal-titulo">
+                <span id="modal-msg-title">Aviso</span>
+            </div>
+
+            <div class="modal-msg" id="modal-msg-text">
+                Tudo certo.
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn-primary" id="modal-msg-ok-btn">
+                    <span>OK</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-whatsapp" class="modal-overlay">
         <div class="modal-card">
             <button class="modal-close" id="modal-whatsapp-close-btn">✕</button>
@@ -349,8 +375,10 @@
                     radiosEntrega.forEach(radio => {
                         radio.addEventListener('change', () => {
                             preencherVisualPerfilGlobal();
+                            atualizarResumoCheckout();
                         });
                     });
+                configurarCampoTroco();
 
 
             const perfil = getPerfil();
@@ -413,28 +441,8 @@
             }
 
 
-            // Calcula resumo (subtotal, entrega, total)
-            let subtotal = 0;
-            cart.forEach(item => {
-                const totalExtrasItem = (item.extras || []).reduce(
-                    (soma, extra) => soma + (extra.preco * extra.qtd),
-                    0
-                );
-                subtotal += valorItem(item);
-            });
-
-            // se taxaEntrega não existir, usa 0
-            const entrega = cart.length > 0 && typeof taxaEntrega !== 'undefined'
-                ? taxaEntrega
-                : 0;
-
-            const total = subtotal + entrega;
-            document.getElementById('checkout-subtotal').textContent =
-                "R$ " + subtotal.toFixed(2).replace('.', ',');
-            document.getElementById('checkout-entrega').textContent =
-                "R$ " + entrega.toFixed(2).replace('.', ',');
-            document.getElementById('checkout-total').textContent =
-                "R$ " + total.toFixed(2).replace('.', ',');
+            // Resumo (subtotal, entrega, total): recalculado quando a loja carrega e ao trocar entrega/retirada
+            atualizarResumoCheckout();
 
             // Botão "Editar dados de entrega"
             const btnEditarEndereco = document.getElementById('btn-editar-endereco');

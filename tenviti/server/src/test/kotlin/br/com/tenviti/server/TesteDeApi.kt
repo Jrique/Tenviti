@@ -3,11 +3,17 @@ package br.com.tenviti.server
 import br.com.tenviti.server.api.JsonApi
 import br.com.tenviti.server.infra.banco.ConfigBanco
 import br.com.tenviti.server.infra.seguranca.ConfigJwt
+import br.com.tenviti.shared.ClientePedidoDto
+import br.com.tenviti.shared.EnderecoDto
+import br.com.tenviti.shared.FormaPagamento
+import br.com.tenviti.shared.ItemNovoPedidoDto
 import br.com.tenviti.shared.LoginRequisicao
+import br.com.tenviti.shared.NovoPedidoPublicoDto
 import br.com.tenviti.shared.LojaDto
 import br.com.tenviti.shared.NovaLojaDto
 import br.com.tenviti.shared.SalvarProdutoDto
 import br.com.tenviti.shared.SessaoDto
+import br.com.tenviti.shared.TipoEntrega
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -108,7 +114,35 @@ abstract class TesteDeApi {
             setBody(dto)
         }
 
+    /** Pedido pela vitrine pública (retirada e Pix, a não ser que o teste diga outra coisa). */
+    protected suspend fun HttpClient.pedirNaVitrine(
+        slug: String,
+        itens: List<ItemNovoPedidoDto>,
+        tipoEntrega: TipoEntrega = TipoEntrega.RETIRADA,
+        endereco: EnderecoDto? = null,
+        formaPagamento: FormaPagamento = FormaPagamento.PIX,
+        trocoParaCentavos: Long? = null,
+        agendadoPara: String? = null,
+        totalEsperadoCentavos: Long? = null,
+        cliente: ClientePedidoDto = ClientePedidoDto("Maria Cliente", "11987654321"),
+    ): HttpResponse = post("/api/public/lojas/$slug/pedidos") {
+        contentType(ContentType.Application.Json)
+        setBody(
+            NovoPedidoPublicoDto(
+                itens = itens,
+                cliente = cliente,
+                tipoEntrega = tipoEntrega,
+                endereco = endereco,
+                formaPagamento = formaPagamento,
+                trocoParaCentavos = trocoParaCentavos,
+                agendadoPara = agendadoPara,
+                totalEsperadoCentavos = totalEsperadoCentavos,
+            ),
+        )
+    }
+
     companion object {
+        val ENDERECO_CLIENTE = EnderecoDto("Rua das Flores", "10", "apto 2", "Centro", "São Paulo", "sp", "01001-000")
         const val SUPER_EMAIL = "super@tenviti.dev"
         const val SUPER_SENHA = "senha-super-forte"
         const val SENHA_DONO = "senha-do-dono"

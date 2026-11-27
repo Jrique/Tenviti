@@ -285,7 +285,7 @@
             document.getElementById('add-btn').addEventListener('click', () => {
                 const selecoes = [];
                 grupos.forEach((g, gi) => g.opcoes.forEach((o, oi) => {
-                    if (qtd[gi][oi] > 0) selecoes.push({ grupo: g.nome, nome: o.nome, preco: o.preco, qtd: qtd[gi][oi] });
+                    if (qtd[gi][oi] > 0) selecoes.push({ opcaoId: o.id, grupo: g.nome, nome: o.nome, preco: o.preco, qtd: qtd[gi][oi] });
                 }));
                 addToCart(produto, selecoes);
                 atualizarBadgeCarrinho();

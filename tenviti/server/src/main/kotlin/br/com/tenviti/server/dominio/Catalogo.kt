@@ -131,6 +131,41 @@ class Produto(
         this.ativo = disponivel
     }
 
+    /**
+     * Monta o item do pedido a partir do que o cliente escolheu na vitrine, conferindo as regras do
+     * produto: disponível, opções que existem e estão ativas, mínimo/máximo de cada grupo e repetição.
+     * O preço vem daqui (do catálogo), nunca do navegador.
+     */
+    fun montarItem(quantidade: Int, escolhas: List<EscolhaDeOpcao>, observacao: String?): ItemPedido {
+        if (!ativo) throw Conflito("\"$nome\" não está disponível no momento. Tire da sacola para continuar.", "produto_indisponivel")
+        exigir(quantidade in 1..99) { "Quantidade de \"$nome\" inválida (de 1 a 99)." }
+        val obs = observacao?.trim()?.ifEmpty { null }
+        exigir((obs?.length ?: 0) <= 200) { "A observação de \"$nome\" pode ter no máximo 200 caracteres." }
+        exigir(escolhas.all { it.quantidade in 1..50 }) { "Quantidade de opção inválida em \"$nome\"." }
+
+        // soma escolhas repetidas da mesma opção
+        val porOpcao = escolhas.groupBy { it.opcaoId }.mapValues { (_, lista) -> lista.sumOf { it.quantidade } }
+        val conhecidas = grupos.flatMap { g -> g.opcoes.filter { it.ativo }.map { it.id } }.toSet()
+        porOpcao.keys.firstOrNull { it !in conhecidas }?.let {
+            throw DadoInvalido("Uma das opções escolhidas em \"$nome\" não está mais disponível. Escolha de novo.", "opcao_invalida")
+        }
+
+        val opcoes = grupos.flatMap { grupo ->
+            val escolhidas = grupo.opcoes.filter { it.ativo && it.id in porOpcao }
+            val total = escolhidas.sumOf { porOpcao.getValue(it.id) }
+            exigir(total >= grupo.minimo) {
+                if (grupo.minimo == grupo.maximo) "Em \"$nome\", escolha ${grupo.minimo} em \"${grupo.nome}\"."
+                else "Em \"$nome\", escolha pelo menos ${grupo.minimo} em \"${grupo.nome}\"."
+            }
+            exigir(total <= grupo.maximo) { "Em \"$nome\", escolha no máximo ${grupo.maximo} em \"${grupo.nome}\"." }
+            exigir(grupo.permiteRepetir || escolhidas.all { porOpcao.getValue(it.id) == 1 }) {
+                "Em \"$nome\", cada opção de \"${grupo.nome}\" só pode ser escolhida uma vez."
+            }
+            escolhidas.map { OpcaoDoItem(grupo.nome, it.nome, it.precoCentavos, porOpcao.getValue(it.id)) }
+        }
+        return ItemPedido(id, nome, quantidade, precoAtualCentavos, opcoes, obs)
+    }
+
     companion object {
         fun novo(
             lojaId: Long,

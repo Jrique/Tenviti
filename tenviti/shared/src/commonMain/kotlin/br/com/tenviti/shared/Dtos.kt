@@ -152,11 +152,19 @@ data class FuncionamentoDto(
     val encomenda: EncomendaConfigDto = EncomendaConfigDto(),
 )
 
+/** Taxa de entrega fixa e valor mínimo do pedido (em centavos; 0 = sem taxa / sem mínimo). */
+@Serializable
+data class EntregaConfigDto(
+    val taxaCentavos: Long = 0,
+    val pedidoMinimoCentavos: Long = 0,
+)
+
 /** Dados operacionais editados pelo dono/gerente (diferente da aparência, que tem permissões próprias). */
 @Serializable
 data class InformacoesLojaDto(
     val contato: ContatoLojaDto = ContatoLojaDto(),
     val funcionamento: FuncionamentoDto = FuncionamentoDto(),
+    val entrega: EntregaConfigDto = EntregaConfigDto(),
 )
 
 /** O que o cliente final vê da loja no cardápio público. */
@@ -169,6 +177,7 @@ data class VitrineLojaDto(
     val contato: ContatoLojaDto = ContatoLojaDto(),
     val horarios: List<IntervaloHorarioDto> = emptyList(),
     val encomenda: EncomendaConfigDto = EncomendaConfigDto(),
+    val entrega: EntregaConfigDto = EntregaConfigDto(),
     /** Aberta agora (considera horários e pausa manual). */
     val aberta: Boolean = true,
     val pausada: Boolean = false,
@@ -256,29 +265,90 @@ data class SalvarProdutoDto(
 
 // ---------- Pedidos ----------
 
+/** Opção escolhida num item do pedido, como ficou registrada (nome e preço da hora da compra). */
+@Serializable
+data class OpcaoDoItemDto(
+    val grupo: String,
+    val nome: String,
+    val precoCentavos: Long,
+    val quantidade: Int,
+)
+
+/** Item de um pedido já feito. Nome e preços são uma "foto" do momento da compra. */
+@Serializable
+data class ItemPedidoDto(
+    val produtoId: Long?,
+    val nome: String,
+    val quantidade: Int,
+    val precoUnitarioCentavos: Long,
+    val opcoes: List<OpcaoDoItemDto> = emptyList(),
+    val observacao: String? = null,
+    val totalCentavos: Long,
+)
+
+@Serializable
+data class ClientePedidoDto(
+    val nome: String,
+    /** Só números, com DDD. */
+    val telefone: String,
+)
+
 @Serializable
 data class PedidoDto(
     val id: Long,
     val codigo: String,
+    /** Resumo em texto (gerado pelo servidor; nos pedidos antigos é o texto enviado pelo cardápio). */
     val descricao: String,
     val totalCentavos: Long,
     val status: StatusPedido,
     val criadoEm: String,
     /** Data/hora da encomenda (ISO-8601 UTC), quando agendado. */
     val agendadoPara: String? = null,
+    // Pedidos feitos a partir da Fase 2 (vazios/nulos nos pedidos antigos)
+    val itens: List<ItemPedidoDto> = emptyList(),
+    val cliente: ClientePedidoDto? = null,
+    val tipoEntrega: TipoEntrega? = null,
+    val endereco: EnderecoDto? = null,
+    val formaPagamento: FormaPagamento? = null,
+    val trocoParaCentavos: Long? = null,
+    val observacao: String? = null,
+    val subtotalCentavos: Long? = null,
+    val taxaEntregaCentavos: Long = 0,
 )
 
-/**
- * Pedido enviado pelo cardápio público.
- * ATENÇÃO (Fase 2): ainda é texto livre com total informado pelo cliente; será trocado por itens
- * estruturados com o preço calculado no servidor.
- */
+/** Opção escolhida pelo cliente: o id vem de ProdutoDto.grupos[].opcoes[].id. */
+@Serializable
+data class OpcaoEscolhidaDto(val opcaoId: Long, val quantidade: Int = 1)
+
+/** Item da sacola: só ids e quantidades; nomes e preços quem define é o servidor. */
+@Serializable
+data class ItemNovoPedidoDto(
+    val produtoId: Long,
+    val quantidade: Int = 1,
+    /** Opções por unidade do produto (ex.: 2x Nutella + 2x Red Velvet num box de 4). */
+    val opcoes: List<OpcaoEscolhidaDto> = emptyList(),
+    val observacao: String? = null,
+)
+
+/** Pedido enviado pela vitrine pública. O total é calculado no servidor. */
 @Serializable
 data class NovoPedidoPublicoDto(
-    val descricao: String,
-    val totalCentavos: Long,
+    val itens: List<ItemNovoPedidoDto>,
+    val cliente: ClientePedidoDto,
+    val tipoEntrega: TipoEntrega,
+    /** Obrigatório na entrega. */
+    val endereco: EnderecoDto? = null,
+    val formaPagamento: FormaPagamento,
+    /** Pagamento em dinheiro: troco para quanto (opcional). */
+    val trocoParaCentavos: Long? = null,
+    val observacao: String? = null,
     /** Encomenda: data e hora locais da loja, "AAAA-MM-DDTHH:mm" (um dos horários de /agenda). */
     val agendadoPara: String? = null,
+    /**
+     * Total que o cliente viu na tela. Se os preços mudaram desde então, o pedido é recusado
+     * (código "total_alterado") para o cliente conferir antes de confirmar.
+     */
+    val totalEsperadoCentavos: Long? = null,
 )
 
 /** O que o cliente consegue consultar do próprio pedido (sem dados pessoais). */
@@ -289,6 +359,11 @@ data class PedidoPublicoDto(
     val totalCentavos: Long,
     val criadoEm: String,
     val agendadoPara: String? = null,
+    val itens: List<ItemPedidoDto> = emptyList(),
+    val subtotalCentavos: Long? = null,
+    val taxaEntregaCentavos: Long = 0,
+    val tipoEntrega: TipoEntrega? = null,
+    val formaPagamento: FormaPagamento? = null,
 )
 
 @Serializable

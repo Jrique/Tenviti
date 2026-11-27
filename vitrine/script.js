@@ -31,6 +31,7 @@ async function carregarVitrineDaLoja() {
         carregarDepoimentos();
         ajustarFormasDeEntrega();
         inicializarAgendamentoCheckout();
+        atualizarResumoCheckout();
         return VITRINE_LOJA;
     } catch (e) {
         console.error('Erro ao carregar dados da loja:', e);
@@ -353,7 +354,7 @@ async function carregarProdutosDoBackend() {
                 categoria: p.categoriaNome || 'Outros',
                 grupos: (p.grupos || []).map(g => ({
                     nome: g.nome, minimo: g.minimo, maximo: g.maximo, permiteRepetir: g.permiteRepetir,
-                    opcoes: (g.opcoes || []).map(o => ({ nome: o.nome, preco: (o.precoCentavos || 0) / 100 }))
+                    opcoes: (g.opcoes || []).map(o => ({ id: o.id, nome: o.nome, preco: (o.precoCentavos || 0) / 100 }))
                 })),
                 destaque: !!p.destaque
             });
@@ -412,7 +413,53 @@ async function carregarCategoriasDoBackend() {
     }
   }
 
-const taxaEntrega = 5.00;
+// ---------- Entrega: taxa e pedido mínimo configurados pela loja ----------
+function tipoEntregaEscolhido() {
+    return document.querySelector('input[name="tipoEntrega"]:checked')?.value || 'ENTREGA';
+}
+
+/** Taxa de entrega da loja em reais (zero na retirada). */
+function taxaEntregaEmReais(tipoEntrega) {
+    if (tipoEntrega === 'RETIRADA') return 0;
+    const e = (VITRINE_LOJA && VITRINE_LOJA.entrega) || {};
+    return (e.taxaCentavos || 0) / 100;
+}
+
+function pedidoMinimoEmReais() {
+    const e = (VITRINE_LOJA && VITRINE_LOJA.entrega) || {};
+    return (e.pedidoMinimoCentavos || 0) / 100;
+}
+
+function subtotalDaSacola() {
+    return getCart().reduce((soma, item) => soma + valorItem(item), 0);
+}
+
+/** Resumo do checkout (subtotal, entrega, total e aviso de pedido mínimo). Mesma conta que o servidor faz. */
+function atualizarResumoCheckout() {
+    const elSub = document.getElementById('checkout-subtotal');
+    if (!elSub) return;
+    const subtotal = subtotalDaSacola();
+    const entrega = getCart().length ? taxaEntregaEmReais(tipoEntregaEscolhido()) : 0;
+    elSub.textContent = fmtBRL(subtotal);
+    document.getElementById('checkout-entrega').textContent = entrega > 0 ? fmtBRL(entrega) : 'Grátis';
+    document.getElementById('checkout-total').textContent = fmtBRL(subtotal + entrega);
+    const aviso = document.getElementById('checkout-minimo');
+    if (aviso) {
+        const minimo = pedidoMinimoEmReais();
+        aviso.textContent = minimo > 0 && subtotal > 0 && subtotal < minimo
+            ? `Pedido mínimo de ${fmtBRL(minimo)} — faltam ${fmtBRL(minimo - subtotal)}.`
+            : '';
+    }
+}
+
+/** Mostra o campo "troco para" só quando o pagamento é em dinheiro. */
+function configurarCampoTroco() {
+    const campo = document.getElementById('campo-troco');
+    if (!campo) return;
+    document.querySelectorAll('input[name="pagamento"]').forEach(r => r.addEventListener('change', () => {
+        campo.hidden = r.value !== 'DINHEIRO' || !r.checked;
+    }));
+}
 
 
 // ================== PERFIL / CADASTRO ==================
@@ -530,7 +577,7 @@ function preencherVisualPerfilGlobal() {
                 </div>
             `;
         } else {
-        
+
             if (!dados || perfilIncompleto(dados)) {
                 entregaBox.innerHTML = `
                     <div class="checkout-endereco-alerta">
@@ -928,7 +975,7 @@ function addToCart(produto, selecoes = []) {
             extras: extrasDetalhados   // [{nome, preco, qtd}]
         });
     }
-    
+
 
     saveCart(cart);
 }
@@ -1136,7 +1183,7 @@ function showWhatsappPrompt(pedido) {
                 0
             );
             const totalItem = valorItem(item);
-        
+
             return `${item.quantidade}x ${item.nome} - R$ ${totalItem.toFixed(2).replace('.', ',')}`;
         });
 
@@ -1166,83 +1213,45 @@ function showWhatsappPrompt(pedido) {
     };
 }
 
+const ROTULO_PAGAMENTO = { PIX: 'Pix', CARTAO: 'Cartão na entrega', DINHEIRO: 'Dinheiro' };
+
 function fmtBRL(n) { return Number(n || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
 
-// Monta a descrição no padrão do painel (Produtos / Entrega|Retirada / Cliente / Pagamento / Obs / Total)
-function montarDescricaoParaBackend(pedido, perfil) {
-  const itens = pedido.itens || [];
-  const linhas = [];
-
-  // Produtos
-  linhas.push("Produtos:");
-  itens.forEach(item => {
-    const extrasValor = (item.extras || []).reduce((s,e)=> s + (e.preco * e.qtd), 0);
-    const totalItem = valorItem(item);
-    // opções agrupadas: "Escolha 4 sabores: 2x Nutella, 2x Red Velvet"
-    const porGrupo = {};
-    (item.extras || []).filter(e => e.qtd > 0).forEach(e => {
-      const g = e.grupo || "Adicionais";
-      (porGrupo[g] = porGrupo[g] || []).push(`${e.qtd}x ${e.nome}`);
-    });
-    const extrasParte = Object.entries(porGrupo).map(([g, itens]) => ` | ${g}: ${itens.join(", ")}`).join("");
-    linhas.push(`- ${item.quantidade}x ${item.nome} (${fmtBRL(totalItem)})${extrasParte}`);
-  });
-
-  // Encomenda
-  if (pedido.agendadoPara) {
-    const [dia, hora] = pedido.agendadoPara.split('T');
-    linhas.push("", `Encomenda para: ${dia.split('-').reverse().join('/')} às ${hora}`);
-  }
-
-  // Entrega / Retirada
-  if (pedido.tipoEntrega === 'RETIRADA') {
-    linhas.push("", "Retirada no balcão");
-  } else {
-    const l1 = [perfil?.logradouro, perfil?.numero].filter(Boolean).join(", ");
-    const cidadeUf = (perfil?.cidade && perfil?.uf) ? `${perfil.cidade}/${perfil.uf}` : (perfil?.cidade || perfil?.uf || "");
-    const l2 = [perfil?.bairro, cidadeUf].filter(Boolean).join(" - ");
-
-    linhas.push("", "Entrega:");
-    if (l1) linhas.push(`- ${l1}`);
-    if (l2) linhas.push(`- ${l2}`);
-    if (perfil?.complemento) linhas.push(`- ${perfil.complemento}`);
-  }
-
-  // Cliente
-  if (perfil?.nome) {
-    linhas.push("", "Cliente:", `- ${perfil.nome}`);
-  }
-
-  // Contato
-  if (perfil?.telefone) {
-    linhas.push("", "Contato:", `- ${perfil.telefone}`);
-  }
-
-  // Pagamento
-  linhas.push("", "Pagamento:", `- ${pedido.pagamento || "Não informado"}`);
-
-  // Obs
-  if (pedido.obs) {
-    linhas.push("", "Obs:", `- ${pedido.obs}`);
-  }
-
-  // Total
-  linhas.push("", "Total:", `- ${fmtBRL(pedido.total)}`);
-
-  return linhas.join("\n");
+/**
+ * Monta o corpo do pedido para o servidor: só ids e quantidades. Nomes e preços quem define é o
+ * servidor (a partir do catálogo); o total visto aqui vai junto para ele conferir se nada mudou.
+ */
+function montarPedidoParaBackend(pedido, perfil) {
+    const itens = (pedido.itens || []).map(item => ({
+        produtoId: item.id,
+        quantidade: item.quantidade,
+        opcoes: (item.extras || []).filter(e => e.qtd > 0).map(e => ({ opcaoId: e.opcaoId, quantidade: e.qtd }))
+    }));
+    const endereco = pedido.tipoEntrega === 'ENTREGA' ? {
+        logradouro: perfil.logradouro || '',
+        numero: perfil.numero || '',
+        complemento: perfil.complemento || null,
+        bairro: perfil.bairro || '',
+        cidade: perfil.cidade || '',
+        uf: (perfil.uf || '').toUpperCase(),
+        cep: (perfil.cep || '').replace(/\D/g, '')
+    } : null;
+    return {
+        itens,
+        cliente: { nome: perfil.nome || '', telefone: (perfil.telefone || '').replace(/\D/g, '') },
+        tipoEntrega: pedido.tipoEntrega,
+        endereco,
+        formaPagamento: pedido.formaPagamento,
+        trocoParaCentavos: pedido.trocoParaCentavos || null,
+        observacao: pedido.obs || null,
+        agendadoPara: pedido.agendadoPara || null,
+        totalEsperadoCentavos: Math.round((pedido.total || 0) * 100)
+    };
 }
 
 async function enviarPedidoParaBackend(pedido) {
     const perfil = (typeof getPerfil === 'function' ? getPerfil() : {}) || {};
-    const descricao = montarDescricaoParaBackend(pedido, perfil);
-  
-    // ATENÇÃO (Fase 2): o total ainda é calculado aqui no navegador. Na Fase 2 o pedido passa a
-    // enviar os itens e o servidor calcula o preço.
-    const body = {
-      descricao: descricao,
-      totalCentavos: Math.round((pedido.total || 0) * 100),
-      agendadoPara: pedido.agendadoPara || null
-    };
+    const body = montarPedidoParaBackend(pedido, perfil);
 
     const resp = await fetch(`${API_LOJA}/pedidos`, {
       method: "POST",
@@ -1256,14 +1265,14 @@ async function enviarPedidoParaBackend(pedido) {
       falha.mensagemUsuario = erro && erro.mensagem;
       throw falha;
     }
-    return await resp.json(); // PedidoPublicoDto { codigo, status, totalCentavos, criadoEm }
+    return await resp.json(); // PedidoPublicoDto { codigo, status, totalCentavos, itens, ... }
   }
 
   function gerarCodigoPedido() {
     const segundos = Math.floor(Date.now() / 1000);
     return segundos.toString().slice(-4);
 }
-  
+
   async function finalizarPedidoFluxo(metodoPagamento) {
     const perfil = getPerfil && getPerfil();
     if (perfilIncompleto && perfilIncompleto(perfil)) {
@@ -1271,18 +1280,38 @@ async function enviarPedidoParaBackend(pedido) {
       if (typeof registrarEventosCepPerfil === 'function') registrarEventosCepPerfil();
       return;
     }
-  
+
     const cart = getCart && getCart();
     if (!cart || !cart.length) {
       showActionFeedback && showActionFeedback("Sua sacola está vazia", "Adicione itens antes de finalizar.");
       return;
     }
-  
+
     if (!metodoPagamento) {
       showActionFeedback && showActionFeedback("Selecione a forma de pagamento", "Escolha Pix, Cartão ou Dinheiro.");
       return;
     }
-  
+
+    // Sacolas montadas antes desta versão não guardavam o código das opções escolhidas
+    if (cart.some(item => (item.extras || []).some(e => e.qtd > 0 && !e.opcaoId))) {
+      showActionFeedback && showActionFeedback("Atualize sua sacola", "Alguns itens foram adicionados numa versão antiga do cardápio. Remova e adicione de novo.");
+      return;
+    }
+
+    // Troco (só no dinheiro)
+    let trocoParaCentavos = null;
+    if (metodoPagamento === 'DINHEIRO') {
+      const textoTroco = (document.getElementById('troco-para')?.value || '').trim();
+      if (textoTroco) {
+        const valor = Number(textoTroco.replace(/\./g, '').replace(',', '.'));
+        if (!Number.isFinite(valor) || valor <= 0) {
+          showActionFeedback && showActionFeedback("Troco inválido", "Informe o valor em reais, por exemplo 50,00.");
+          return;
+        }
+        trocoParaCentavos = Math.round(valor * 100);
+      }
+    }
+
     // Encomenda: data e horário
     const agendadoPara = agendamentoEscolhido();
     if (VITRINE_LOJA && VITRINE_LOJA.encomenda && VITRINE_LOJA.encomenda.exigeAgendamento && !agendadoPara) {
@@ -1293,18 +1322,18 @@ async function enviarPedidoParaBackend(pedido) {
     // → tipo de entrega + obs do checkout
     const tipoEntrega = document.querySelector('input[name="tipoEntrega"]:checked')?.value || 'ENTREGA';
     const obs = document.querySelector('#observacoes')?.value?.trim() || "";
-  
+
     // Subtotal
     let subtotal = 0;
     cart.forEach(item => {
       const extrasValor = (item.extras || []).reduce((s,e)=> s + (e.preco * e.qtd), 0);
       subtotal += valorItem(item);
     });
-  
-    // Taxa de entrega (0 para RETIRADA)
-    const taxa = (tipoEntrega === 'RETIRADA') ? 0 : (typeof taxaEntrega !== 'undefined' ? taxaEntrega : 0);
+
+    // Taxa de entrega da loja (0 para RETIRADA) — o servidor refaz essa conta e confere
+    const taxa = taxaEntregaEmReais(tipoEntrega);
     const total = subtotal + taxa;
-    
+
     const agora = new Date();
 
     const pedido = {
@@ -1313,7 +1342,9 @@ async function enviarPedidoParaBackend(pedido) {
         subtotal,
         entrega: taxa,
         total,
-        pagamento: metodoPagamento,
+        pagamento: ROTULO_PAGAMENTO[metodoPagamento] || metodoPagamento,
+        formaPagamento: metodoPagamento,
+        trocoParaCentavos,
         tipoEntrega,
         agendadoPara,
         obs,
@@ -1323,7 +1354,7 @@ async function enviarPedidoParaBackend(pedido) {
         // hora da última mudança de status (começa agora, na criação)
         statusUpdatedAt: agora.toISOString()
       };
-  
+
     // registra no backend
         try {
         const created = await enviarPedidoParaBackend(pedido);
@@ -1337,6 +1368,10 @@ async function enviarPedidoParaBackend(pedido) {
 
             pedido.criadoEm = created.criadoEm;
             pedido.date     = formatarDataPedido(created.criadoEm);  // "Hoje, 15:30"
+            // valores oficiais são os do servidor
+            pedido.total    = created.totalCentavos / 100;
+            pedido.entrega  = (created.taxaEntregaCentavos || 0) / 100;
+            if (created.subtotalCentavos != null) pedido.subtotal = created.subtotalCentavos / 100;
 
             // se o status vindo do backend for diferente do que estava,
             // considera que acabou de mudar e atualiza a hora
@@ -1353,12 +1388,12 @@ async function enviarPedidoParaBackend(pedido) {
         if (e.mensagemUsuario) inicializarAgendamentoCheckout(); // atualiza dias lotados
         return;
         }
-  
+
     // histórico local do cliente (pedidos.html)
     const pedidos = (getPedidos && getPedidos()) || [];
     pedidos.unshift(pedido);
     savePedidos && savePedidos(pedidos);
-  
+
     // limpa sacola e segue o fluxo normal
     saveCart && saveCart([]);
     showWhatsappPrompt && showWhatsappPrompt(pedido);
@@ -1389,7 +1424,7 @@ function savePedidos(lista) {
 function isPaginaPedidos() {
     return /pedidos\.html(\?|$)/.test(location.pathname) || document.body.dataset.page === 'pedidos';
   }
-  
+
   // mapeia enum do backend para label do site (se você usa rótulos diferentes)
   function mapStatusLabel(s) {
     switch ((s || "").toUpperCase()) {
@@ -1402,11 +1437,11 @@ function isPaginaPedidos() {
       default: return s || "—";
     }
   }
-  
+
   async function atualizarPedidosComBackendSePossivel() {
     let pedidos = (typeof getPedidos === "function" ? getPedidos() : []) || [];
     if (!pedidos.length) return;
-  
+
     const atualizados = await Promise.all(
       pedidos.map(async (p) => {
         // pedidos sem código público (antigos ou não enviados) → deixa como está
@@ -1416,36 +1451,36 @@ function isPaginaPedidos() {
           const r = await fetch(`${API_LOJA}/pedidos/${encodeURIComponent(p.codigoPublico)}`, {
             headers: { "Accept": "application/json" }
           });
-  
+
           if (!r.ok) return p;
-  
+
           const dto = await r.json();
-  
+
           const statusAnterior = p.status;
           const novoStatus = dto.status || statusAnterior;
-  
+
           // por padrão, mantém a hora antiga (se existir)
           let statusUpdatedAt = p.statusUpdatedAt;
-  
+
           // se o backend mudou o status, registra a hora dessa mudança
           if (novoStatus && statusAnterior && novoStatus !== statusAnterior) {
             statusUpdatedAt = new Date().toISOString();
           }
-  
+
           return {
             ...p,
             code: dto.codigo || p.code,
             total: dto.totalCentavos != null ? dto.totalCentavos / 100 : p.total,
-  
+
             // status "cru" vindo do backend (NOVO, VISTO, EM_PREPARO, .)
             status: novoStatus,
-  
+
             // status "bonito" para exibir, se você quiser usar no futuro
             statusLabel: mapStatusLabel(dto.status) || p.statusLabel || p.status,
-  
+
             // hora da última alteração de status
             statusUpdatedAt,
-  
+
             date: dto.criadoEm ? formatarDataPedido(dto.criadoEm) : p.date
           };
         } catch (e) {
@@ -1454,11 +1489,11 @@ function isPaginaPedidos() {
         }
       })
     );
-  
+
     if (typeof savePedidos === "function") {
       savePedidos(atualizados);
     }
-  
+
     // Página pedidos.html usa preencherListaPedidos()
     if (typeof preencherListaPedidos === "function") {
       preencherListaPedidos();
@@ -1472,4 +1507,4 @@ function isPaginaPedidos() {
       // atualiza a cada 15s
       setInterval(atualizarPedidosComBackendSePossivel, 15000);
     }
-  });  
+  });

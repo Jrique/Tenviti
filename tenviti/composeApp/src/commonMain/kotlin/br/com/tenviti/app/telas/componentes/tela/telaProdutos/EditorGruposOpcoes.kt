@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaProdutos
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,7 +21,7 @@ import br.com.tenviti.shared.OpcaoDto
 import br.com.tenviti.shared.emReais
 import br.com.tenviti.shared.reaisParaCentavos
 
-private val Vinho = Color(0xFF790001)
+private val Vinho: Color @Composable get() = TenvitiTema.cores.base
 
 /**
  * Editor dos grupos de opções de um produto.
@@ -32,7 +34,7 @@ fun EditorGruposOpcoes(grupos: List<GrupoOpcoesDto>, onChange: (List<GrupoOpcoes
         Text(
             "Use para sabores, adicionais, ponto da carne… Mínimo maior que zero torna a escolha obrigatória.",
             style = MaterialTheme.typography.bodySmall,
-            color = Color.Gray,
+            color = TenvitiTema.cores.textoSuave,
         )
 
         grupos.forEachIndexed { gi, grupo ->
@@ -58,7 +60,7 @@ private fun CartaoGrupo(grupo: GrupoOpcoesDto, onChange: (GrupoOpcoesDto) -> Uni
     Card(
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.3f)),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = TenvitiTema.cores.superficie),
     ) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -91,7 +93,7 @@ private fun CartaoGrupo(grupo: GrupoOpcoesDto, onChange: (GrupoOpcoesDto) -> Uni
                         onCheckedChange = { ativo -> onChange(grupo.copy(opcoes = grupo.opcoes.toMutableList().also { it[oi] = opcao.copy(ativo = ativo) })) },
                     )
                     IconButton(onClick = { onChange(grupo.copy(opcoes = grupo.opcoes.filterIndexed { i, _ -> i != oi })) }) {
-                        Icon(Icons.Default.Close, "Remover opção", tint = Color.Gray)
+                        Icon(Icons.Default.Close, "Remover opção", tint = TenvitiTema.cores.textoSuave)
                     }
                 }
             }
@@ -100,7 +102,7 @@ private fun CartaoGrupo(grupo: GrupoOpcoesDto, onChange: (GrupoOpcoesDto) -> Uni
                     Text("+ opção", color = Vinho)
                 }
                 Spacer(Modifier.weight(1f))
-                Text("Caixinha marcada = disponível", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text("Caixinha marcada = disponível", style = MaterialTheme.typography.bodySmall, color = TenvitiTema.cores.textoSuave)
             }
         }
     }

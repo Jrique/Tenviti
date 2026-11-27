@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaConfiguracoes
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,7 +27,7 @@ import br.com.tenviti.shared.Papel
 import br.com.tenviti.shared.UsuarioDto
 import kotlinx.coroutines.launch
 
-private val Vinho = Color(0xFF790001)
+private val Vinho: Color @Composable get() = TenvitiTema.cores.base
 
 /** Troca da própria senha (qualquer papel). */
 @Composable
@@ -43,7 +45,7 @@ fun ModalAlterarSenha(onDismiss: () -> Unit) {
         Surface(
             modifier = Modifier.fillMaxWidth(0.9f).widthIn(max = 520.dp).wrapContentHeight(),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFFFF8F6),
+            color = TenvitiTema.cores.fundo,
             tonalElevation = 6.dp,
         ) {
             Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -143,7 +145,7 @@ fun ModalGerenciarEquipe(onDismiss: () -> Unit) {
         Surface(
             modifier = Modifier.fillMaxWidth(0.9f).widthIn(max = 700.dp).fillMaxHeight(0.8f),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFFFF8F6),
+            color = TenvitiTema.cores.fundo,
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Row(
@@ -181,7 +183,7 @@ fun ModalGerenciarEquipe(onDismiss: () -> Unit) {
                                         }
                                     }) { Icon(Icons.Default.Delete, "Excluir", tint = Vinho) }
                                 } else {
-                                    Text("(Você)", color = Color.Gray, fontSize = 12.sp)
+                                    Text("(Você)", color = TenvitiTema.cores.textoSuave, fontSize = 12.sp)
                                 }
                             }
                             HorizontalDivider(color = Color.LightGray.copy(0.3f))

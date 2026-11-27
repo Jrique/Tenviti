@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -23,7 +25,7 @@ import br.com.tenviti.app.telas.componentes.tela.telaCategorias.TabelaCategorias
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TelaCategorias() {
+fun TelaCategorias(embutida: Boolean = false) {
     // ViewModel e estado base
     val categoriasViewModel = remember { CategoriasViewModel() }
     val scope = rememberCoroutineScope()
@@ -60,18 +62,18 @@ fun TelaCategorias() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF8F6))
+            .background(TenvitiTema.cores.fundo)
             .verticalScroll(scrollState)
-            .padding(if (isMobile) 16.dp else 18.dp)
+            .padding(horizontal = if (isMobile) 16.dp else 32.dp)
     ) {
-        // Título da Tela
-        Text(
-            text = "Categorias",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            fontSize = if (isMobile) 32.sp else 50.sp
-        )
-        Spacer(modifier = Modifier.height(if (isMobile) 16.dp else 8.dp))
+        // Título da Tela (dentro do Catálogo o título já está no cabeçalho)
+        if (!embutida) {
+            Text(
+                text = "Categorias",
+                style = MaterialTheme.typography.headlineLarge,
+            )
+            Spacer(modifier = Modifier.height(if (isMobile) 16.dp else 8.dp))
+        }
 
         // Cabeçalho (usa o total vindo do ViewModel)
         CabecalhoCategorias(
@@ -90,9 +92,9 @@ fun TelaCategorias() {
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Pesquisar") },
             shape = RoundedCornerShape(if (isMobile) 12.dp else 16.dp),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                disabledContainerColor = Color.White,
+                focusedContainerColor = TenvitiTema.cores.superficie,
+                unfocusedContainerColor = TenvitiTema.cores.superficie,
+                disabledContainerColor = TenvitiTema.cores.superficie,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent
             )
@@ -145,7 +147,7 @@ fun TelaCategorias() {
                             categoriaParaDeletar = null
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+                    colors = ButtonDefaults.buttonColors(containerColor = TenvitiTema.cores.erro.cheia)
                 ) { Text("Excluir") }
             },
             dismissButton = {

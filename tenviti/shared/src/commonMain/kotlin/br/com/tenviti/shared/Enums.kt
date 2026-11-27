@@ -33,6 +33,21 @@ enum class StatusPedido(val rotulo: String) {
     val ehFinal: Boolean get() = this == FINALIZADO || this == CANCELADO
 }
 
+/** Como o cliente recebe o pedido. Cada forma depende do módulo de mesmo nome estar ligado na loja. */
+@Serializable
+enum class TipoEntrega(val rotulo: String) {
+    ENTREGA("Entrega"),
+    RETIRADA("Retirada"),
+}
+
+/** Forma de pagamento combinada com a loja (pagamento online chega com o Mercado Pago). */
+@Serializable
+enum class FormaPagamento(val rotulo: String) {
+    PIX("Pix"),
+    CARTAO("Cartão na entrega"),
+    DINHEIRO("Dinheiro"),
+}
+
 /** Recursos que podem ser ligados ou desligados por loja (definido pelo super admin). */
 @Serializable
 enum class Modulo(val rotulo: String) {

@@ -6,201 +6,194 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
-import br.com.tenviti.app.WindowSize
-import br.com.tenviti.app.rememberWindowSize
-import br.com.tenviti.app.telas.componentes.tela.telaProdutos.CabecalhoProdutos
-import br.com.tenviti.app.telas.componentes.tela.telaProdutos.ListaProdutosCards
-import br.com.tenviti.app.telas.componentes.tela.telaProdutos.ModalAdicionarProduto
-import br.com.tenviti.app.telas.componentes.tela.telaProdutos.TabelaProdutos
 import br.com.tenviti.app.data.Produto
-import br.com.tenviti.app.data.Categoria
+import br.com.tenviti.app.telas.componentes.tela.telaProdutos.ModalAdicionarProduto
+import br.com.tenviti.app.ui.*
+import kotlinx.coroutines.launch
 
+/** Catálogo: produtos em cartões e, na outra aba, as categorias. */
 @Composable
-fun TelaProdutos() {
-    val windowSize = rememberWindowSize()
-    val isMobile = windowSize == WindowSize.COMPACT
+fun TelaCatalogo() {
+    var aba by remember { mutableStateOf(0) }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val margem = if (maxWidth >= 600.dp) 32.dp else 16.dp
+        Column(Modifier.fillMaxSize().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            CabecalhoTela("Catálogo", "O que aparece na sua vitrine.", modifier = Modifier.padding(horizontal = margem)) {
+                SeletorSegmentado(listOf("Produtos", "Categorias"), aba, { aba = it })
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when (aba) {
+                    0 -> ConteudoProdutos(margem)
+                    else -> TelaCategorias(embutida = true)
+                }
+            }
+        }
+    }
+}
 
-    // ViewModel de produtos
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ConteudoProdutos(margem: androidx.compose.ui.unit.Dp) {
+    val c = TenvitiTema.cores
     val vm = remember { ProdutosViewModel() }
+    val categoriasVm = remember { CategoriasViewModel() }
     val scope = rememberCoroutineScope()
 
-    // ViewModel de categorias
-    val categoriasViewModel = remember { CategoriasViewModel() }
-    val categorias = categoriasViewModel.categorias
+    var busca by remember { mutableStateOf("") }
+    var categoria by remember { mutableStateOf<String?>(null) }
+    var adicionando by remember { mutableStateOf(false) }
+    var editando by remember { mutableStateOf<Produto?>(null) }
+    var apagando by remember { mutableStateOf<Produto?>(null) }
 
-    var textoPesquisa by remember { mutableStateOf("") }
-    val scrollState = rememberScrollState()
-    var mostrarModalAdicionar by remember { mutableStateOf(false) }
-    var produtoParaDeletar by remember { mutableStateOf<Produto?>(null) }
-    var produtoParaEditar by remember { mutableStateOf<Produto?>(null) }
-
-    // Carrega produtos E categorias na primeira composição
     LaunchedEffect(Unit) {
         vm.load()
-        categoriasViewModel.carregar()
+        categoriasVm.carregar()
     }
 
-    val produtosFiltrados by remember(textoPesquisa, vm.produtos) {
-        mutableStateOf(
-            run {
-                val base = if (textoPesquisa.isBlank()) {
-                    vm.produtos
-                } else {
-                    vm.produtos.filter {
-                        it.nome.contains(textoPesquisa, ignoreCase = true) ||
-                                it.descricao.contains(textoPesquisa, ignoreCase = true)
-                    }
-                }
-                base.sortedWith(
-                    compareByDescending<Produto> { it.destacado }
-                        .thenByDescending { it.id ?: 0L }
-                )
-            }
-        )
-    }
+    val filtrados = vm.produtos
+        .filter { categoria == null || it.tipo == categoria }
+        .filter { busca.isBlank() || it.nome.contains(busca, true) || it.descricao.contains(busca, true) }
+        .sortedWith(compareByDescending<Produto> { it.ativo }.thenByDescending { it.destacado }.thenBy { it.nome })
 
-    val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(vm.erro) {
-        vm.erro?.let { snackbarHostState.showSnackbar(it) }
-    }
-
-    Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
-    ) { padding ->
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val colunas = ((maxWidth - margem * 2) / 230.dp).toInt().coerceIn(1, 6)
+        val largura = (maxWidth - margem * 2 - 14.dp * (colunas - 1)) / colunas - 1.dp // folga para arredondamento
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFFFF8F6))
-                .padding(padding)
-                .padding(if (isMobile) 16.dp else 18.dp)
-                .verticalScroll(scrollState)
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = margem).padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(
-                text = "Produtos",
-                style = MaterialTheme.typography.headlineLarge,
-                fontSize = if (isMobile) 32.sp else 50.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(Modifier.height(if (isMobile) 16.dp else 8.dp))
-
-            CabecalhoProdutos(
-                totalProdutos = vm.produtos.size,
-                isMobile = isMobile,
-                onAdicionarClick = { mostrarModalAdicionar = true }
-            )
-
-            Spacer(Modifier.height(if (isMobile) 16.dp else 32.dp))
-
-            TextField(
-                value = textoPesquisa,
-                onValueChange = { textoPesquisa = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Pesquisar por nome ou descrição...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Pesquisar") },
-                shape = RoundedCornerShape(if (isMobile) 12.dp else 16.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    disabledContainerColor = Color.White,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = busca, onValueChange = { busca = it }, singleLine = true,
+                    placeholder = { Text("Buscar produto") },
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = c.superficie, focusedContainerColor = c.superficie, unfocusedBorderColor = c.borda),
+                    modifier = Modifier.widthIn(min = 220.dp, max = 360.dp),
                 )
-            )
-
-            Spacer(Modifier.height(if (isMobile) 16.dp else 32.dp))
-
-            if (vm.carregando) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(16.dp))
+                FiltroCategoria("Tudo", categoria == null) { categoria = null }
+                categoriasVm.categorias.forEach { cat -> FiltroCategoria(cat.nome, categoria == cat.nome) { categoria = cat.nome } }
+                Button(onClick = { adicionando = true }, shape = RoundedCornerShape(12.dp), modifier = Modifier.height(44.dp)) {
+                    Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Novo produto")
+                }
             }
-
-            if (isMobile) {
-                ListaProdutosCards(
-                    produtos = produtosFiltrados,
-                    onDeleteRequest = { produtoParaDeletar = it },
-                    onEditRequest   = { produtoParaEditar = it },
-                    onPausarRequest = { p -> scope.launch { vm.alternarDisponivel(p) } },
-                )
-            } else {
-                TabelaProdutos(
-                    produtos = produtosFiltrados,
-                    onDeleteRequest = { produtoParaDeletar = it },
-                    onEditRequest   = { produtoParaEditar = it },
-                    onPausarRequest = { p -> scope.launch { vm.alternarDisponivel(p) } },
-                )
+            Text(
+                "${vm.produtos.size} produtos · ${vm.produtos.count { !it.ativo }} pausados · ${vm.produtos.count { it.precoPromocional != null }} em promoção",
+                style = MaterialTheme.typography.bodySmall, color = c.textoSuave,
+            )
+            if (vm.carregando) LinearProgressIndicator(Modifier.fillMaxWidth())
+            vm.erro?.let { Text(it, color = c.erro.texto, style = MaterialTheme.typography.bodySmall) }
+            if (!vm.carregando && filtrados.isEmpty()) {
+                Cartao(Modifier.fillMaxWidth()) {
+                    Text(if (vm.produtos.isEmpty()) "Cadastre seu primeiro produto" else "Nenhum produto encontrado", style = MaterialTheme.typography.titleMedium)
+                    Text(if (vm.produtos.isEmpty()) "Ele aparece na vitrine assim que você salvar." else "Mude a busca ou a categoria.", style = MaterialTheme.typography.bodySmall, color = c.textoSuave)
+                }
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                filtrados.forEach { p ->
+                    CartaoProduto(
+                        p, Modifier.width(largura),
+                        onEditar = { editando = p },
+                        onApagar = { apagando = p },
+                        onDisponivel = { scope.launch { vm.alternarDisponivel(p) } },
+                    )
+                }
             }
         }
     }
 
-    // Modal para ADICIONAR produto
-    if (mostrarModalAdicionar) {
+    if (adicionando) {
         ModalAdicionarProduto(
-            produto = null,
-            categorias = categorias,   // passa lista de categorias
-            onDismiss = { mostrarModalAdicionar = false },
-            onSave = { novo ->
-                scope.launch {
-                    vm.criar(novo) { mostrarModalAdicionar = false }
-                }
-            },
+            produto = null, categorias = categoriasVm.categorias,
+            onDismiss = { adicionando = false },
+            onSave = { novo -> scope.launch { vm.criar(novo) { adicionando = false } } },
             onEnviarFoto = { arquivo -> vm.enviarFoto(arquivo) },
         )
     }
-
-    // Modal para EDITAR produto (com produto selecionado)
-    produtoParaEditar?.let { produto ->
+    editando?.let { produto ->
         ModalAdicionarProduto(
-            produto = produto,
-            categorias = categorias,   //  passa lista de categorias
-            onDismiss = { produtoParaEditar = null },
-            onSave = { atualizado ->
-                scope.launch {
-                    vm.atualizar(atualizado) { produtoParaEditar = null }
-                }
-            },
-            onToggleDestaque = { p ->
-                scope.launch {
-                    vm.toggleDestaque(p)
-                    // opcional: sincronizar produto em edição com lista
-                    produtoParaEditar = vm.produtos.firstOrNull { it.id == p.id }
-                }
-            },
+            produto = produto, categorias = categoriasVm.categorias,
+            onDismiss = { editando = null },
+            onSave = { atualizado -> scope.launch { vm.atualizar(atualizado) { editando = null } } },
+            onToggleDestaque = { p -> scope.launch { vm.toggleDestaque(p); editando = vm.produtos.firstOrNull { it.id == p.id } } },
             onEnviarFoto = { arquivo -> vm.enviarFoto(arquivo) },
         )
     }
-
-    // Diálogo de confirmação de exclusão
-    produtoParaDeletar?.let { produto ->
+    apagando?.let { produto ->
         AlertDialog(
-            onDismissRequest = { produtoParaDeletar = null },
-            title = { Text("Confirmar Exclusão") },
-            text  = { Text("Deseja deletar \"${produto.nome}\"?") },
+            onDismissRequest = { apagando = null },
+            title = { Text("Apagar \"${produto.nome}\"?") },
+            text = { Text("Ele some da vitrine e do catálogo. Se só acabou o estoque, prefira pausar.") },
             confirmButton = {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            vm.deletar(produto.id ?: return@launch)
-                            produtoParaDeletar = null
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
-                ) { Text("Deletar") }
+                TextButton(
+                    onClick = { scope.launch { vm.deletar(produto.id ?: return@launch); apagando = null } },
+                    colors = ButtonDefaults.textButtonColors(contentColor = c.erro.texto),
+                ) { Text("Apagar") }
             },
-            dismissButton = {
-                TextButton(onClick = { produtoParaDeletar = null }) {
-                    Text("Cancelar", color = Color(0xFF790001))
-                }
-            }
+            dismissButton = { TextButton(onClick = { apagando = null }) { Text("Voltar") } },
         )
+    }
+}
+
+@Composable
+private fun FiltroCategoria(nome: String, ativo: Boolean, onClick: () -> Unit) {
+    val c = TenvitiTema.cores
+    FilterChip(
+        selected = ativo, onClick = onClick, label = { Text(nome) },
+        shape = RoundedCornerShape(99.dp),
+        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = c.texto, selectedLabelColor = c.fundo, containerColor = c.superficie),
+        border = FilterChipDefaults.filterChipBorder(enabled = true, selected = ativo, borderColor = c.borda),
+    )
+}
+
+@Composable
+private fun CartaoProduto(p: Produto, modifier: Modifier, onEditar: () -> Unit, onApagar: () -> Unit, onDisponivel: () -> Unit) {
+    val c = TenvitiTema.cores
+    Cartao(modifier, preenchimento = PaddingValues(0.dp), espacamento = 0.dp) {
+        Box(
+            Modifier.fillMaxWidth().height(110.dp).background(c.superficieAlt, RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)).alpha(if (p.ativo) 1f else 0.55f),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(p.nome.split(' ').take(2).joinToString("") { it.take(1).uppercase() }, fontFamily = FonteTitulo, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = c.textoSuave)
+            Row(Modifier.align(Alignment.TopStart).padding(10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (p.destacado) Etiqueta("Destaque", CorDeStatus(c.acentoSuave, c.sobreAcentoSuave, c.acento))
+                if (p.precoPromocional != null) Etiqueta("Promoção", c.aviso)
+                if (p.imagemUrl != null) Etiqueta("Com foto", c.neutro)
+            }
+        }
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (p.tipo.isNotBlank()) Text(p.tipo, style = MaterialTheme.typography.labelSmall, color = c.textoSuave)
+            Text(p.nome, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (p.grupos.isNotEmpty()) Text("${p.grupos.size} grupo(s) de opções", style = MaterialTheme.typography.labelSmall, color = c.textoSuave)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text((p.precoPromocional ?: p.preco).toReal(), fontFamily = FonteTitulo, style = MaterialTheme.typography.titleMedium)
+                    p.precoPromocional?.let { Text(p.preco.toReal(), style = MaterialTheme.typography.labelSmall, color = c.textoSuave, textDecoration = TextDecoration.LineThrough) }
+                }
+                Etiqueta(if (p.ativo) "Disponível" else "Pausado", if (p.ativo) c.sucesso else c.neutro)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(checked = p.ativo, onCheckedChange = { onDisponivel() }, modifier = Modifier.padding(end = 4.dp))
+                Text(if (p.ativo) "Vendendo" else "Pausado", style = MaterialTheme.typography.labelSmall, color = c.textoSuave, modifier = Modifier.weight(1f))
+                IconButton(onClick = onEditar) { Icon(Icons.Outlined.Edit, contentDescription = "Editar ${p.nome}", tint = c.texto) }
+                IconButton(onClick = onApagar) { Icon(Icons.Outlined.DeleteOutline, contentDescription = "Apagar ${p.nome}", tint = c.erro.texto) }
+            }
+        }
     }
 }

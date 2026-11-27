@@ -123,9 +123,10 @@ class ServicoLojas(
         // Trabalhar: o domínio valida telefone, endereço, horários e regras de encomenda
         val contato = req.contato.paraDominio()
         val funcionamento = req.funcionamento.paraDominio()
+        val entrega = req.entrega.paraDominio()
         return tx.executar {
             val loja = lojas.buscar(lojaId) ?: throw lojaNaoEncontrada()
-            loja.atualizarInformacoes(contato, funcionamento)
+            loja.atualizarInformacoes(contato, funcionamento, entrega)
             lojas.salvar(loja).paraInformacoesDto()
         }
     }

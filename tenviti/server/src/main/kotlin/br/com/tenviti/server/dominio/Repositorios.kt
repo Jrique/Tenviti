@@ -34,6 +34,8 @@ interface RepositorioCatalogo {
 
     fun listarProdutos(lojaId: Long, somenteAtivos: Boolean = false): List<Produto>
     fun buscarProduto(lojaId: Long, id: Long): Produto?
+    /** Produtos da loja com esses ids (os que não existem ou são de outra loja ficam de fora). */
+    fun buscarProdutos(lojaId: Long, ids: Set<Long>): List<Produto>
     fun salvarProduto(produto: Produto): Produto
     fun removerProduto(lojaId: Long, id: Long)
 }
@@ -55,7 +57,8 @@ interface RepositorioPedidos {
     fun buscar(lojaId: Long, id: Long): Pedido?
     fun buscarPorCodigo(lojaId: Long, codigo: String): Pedido?
     fun existeCodigo(lojaId: Long, codigo: String): Boolean
-    fun listar(lojaId: Long, de: Instant, ate: Instant, limite: Int): List<Pedido>
+    /** [comItens] = false quando só importam totais (ex.: dashboard), para não carregar os itens. */
+    fun listar(lojaId: Long, de: Instant, ate: Instant, limite: Int, comItens: Boolean = true): List<Pedido>
     /** Pedidos não cancelados por dia de produção, no intervalo [de, ate]. */
     fun contarPorDia(lojaId: Long, de: LocalDate, ate: LocalDate): Map<LocalDate, Int>
     /** Trava (até o fim da transação) a contagem de pedidos de um dia da loja, para o limite diário. */

@@ -1,5 +1,7 @@
 package br.com.tenviti.app.telas.componentes.tela.telaProdutos
 
+import br.com.tenviti.app.ui.TenvitiTema
+
 import br.com.tenviti.shared.emReais
 import br.com.tenviti.shared.reaisParaCentavos
 import kotlin.math.roundToLong
@@ -73,7 +75,7 @@ fun ModalAdicionarProduto(
                 .fillMaxWidth(0.98f)
                 .fillMaxHeight(0.9f),
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFFFF8F6),
+            color = TenvitiTema.cores.fundo,
             tonalElevation = 6.dp
         ) {
             Column(
@@ -97,17 +99,17 @@ fun ModalAdicionarProduto(
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             if (enviandoFoto) {
-                                CircularProgressIndicator(color = Color(0xFF790001))
+                                CircularProgressIndicator(color = TenvitiTema.cores.base)
                             } else {
-                                Icon(Icons.Default.AddPhotoAlternate, "Foto do produto", tint = Color.Gray)
+                                Icon(Icons.Default.AddPhotoAlternate, "Foto do produto", tint = TenvitiTema.cores.textoSuave)
                                 Text(
                                     if (imagemUrl == null) "Toque para enviar a foto (PNG, JPG ou WEBP, até 5 MB)"
                                     else "Foto enviada ✓ — toque para trocar",
-                                    color = Color.Gray,
+                                    color = TenvitiTema.cores.textoSuave,
                                 )
                                 imagemUrl?.let {
-                                    Text(it, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                                    TextButton(onClick = { imagemUrl = null }) { Text("Remover foto", color = Color(0xFF790001)) }
+                                    Text(it, style = MaterialTheme.typography.bodySmall, color = TenvitiTema.cores.textoSuave)
+                                    TextButton(onClick = { imagemUrl = null }) { Text("Remover foto", color = TenvitiTema.cores.base) }
                                 }
                             }
                         }
@@ -150,7 +152,7 @@ fun ModalAdicionarProduto(
                                 text = "Categoria",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF790001)
+                                color = TenvitiTema.cores.base
                             )
                         },
                         placeholder = {
@@ -167,9 +169,9 @@ fun ModalAdicionarProduto(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
                             disabledContainerColor = Color.Transparent,
-                            focusedBorderColor = Color(0xFF790001),
-                            unfocusedBorderColor = Color(0xFFB0B0B0),
-                            cursorColor = Color(0xFF790001)
+                            focusedBorderColor = TenvitiTema.cores.base,
+                            unfocusedBorderColor = TenvitiTema.cores.textoSuave,
+                            cursorColor = TenvitiTema.cores.base
                         ),
                         modifier = Modifier
                             .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
@@ -204,7 +206,7 @@ fun ModalAdicionarProduto(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancelar", color = Color(0xFF790001))
+                        Text("Cancelar", color = TenvitiTema.cores.base)
                     }
 
                     if (produto != null && (produto.id ?: 0L) != 0L) {
@@ -234,7 +236,7 @@ fun ModalAdicionarProduto(
                             )
                             onSave(produtoSalvo)
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF790001))
+                        colors = ButtonDefaults.buttonColors(containerColor = TenvitiTema.cores.base)
                     ) {
                         Text("Salvar Produto")
                     }
@@ -263,7 +265,7 @@ fun ModalAdicionarProduto(
                                     onToggleDestaque(produto)
                                 }
                             ) {
-                                Text("Confirmar", color = Color(0xFF790001))
+                                Text("Confirmar", color = TenvitiTema.cores.base)
                             }
                         },
                         dismissButton = {

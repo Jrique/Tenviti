@@ -25,6 +25,9 @@ data class Endereco(
         exigir(cep.isEmpty() || Regex("^[0-9]{8}$").matches(cep)) { "CEP inválido: use 8 números." }
     }
 
+    /** Tem o mínimo para um entregador chegar. */
+    val completoParaEntrega: Boolean get() = listOf(logradouro, numero, bairro, cidade).all { it.isNotBlank() }
+
     val vazio: Boolean get() = listOf(logradouro, numero, bairro, cidade, uf, cep).all { it.isBlank() } && complemento.isNullOrBlank()
 }
 
